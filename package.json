@@ -15,11 +15,23 @@
     "typecheck": "astro check"
   },
   "dependencies": {
+    "@radix-ui/react-tabs": "^1.1.21",
+    "@tailwindcss/vite": "^4.3.3",
     "@wix/astro": "^2.39.0",
     "@wix/dashboard": "^1.3.43",
+    "@wix/data": "^1.0.519",
     "@wix/design-system": "^1.154.0",
+    "@wix/editor": "^1.356.0",
     "@wix/essentials": "^0.1.23",
+    "@wix/site-window": "^1.59.0",
     "astro": "^5.8.0",
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "^1.43.0",
+    "react-quill": "^2.0.0",
+    "react-to-webcomponent": "^2.0.0",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
