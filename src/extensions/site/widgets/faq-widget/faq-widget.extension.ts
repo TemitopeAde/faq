@@ -11,13 +11,13 @@ export default extensions.customElement({
     defaultHeight: 250
   },
   installation: {
-    autoAdd: true
+    autoAdd: false
   },
   presets: [
     {
       id: '91521e2a-de98-451b-aedb-54116e122a85',
       name: 'default',
-      thumbnailUrl: '{{BASE_URL}}/faq-widget-thumbnail.png',
+      thumbnailUrl: '{{BASE_URL}}/faq-widget-thumbnail-v2.png',
     },
   ],
   
