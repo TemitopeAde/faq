@@ -33,5 +33,17 @@ export default {
     itemUpdate: 'CMS_EDITOR',
   },
   indexes: [],
-  initialData: [],
+  initialData: [
+    {
+      _id: 'starter-faq-group',
+      title: 'Getting Started',
+      connectionKey: 'getting-started',
+      description: 'Common questions about setting up and customizing your FAQ widget.',
+      published: true,
+      defaultLayout: 'classic',
+      defaultPreset: 'classic',
+      usageCount: 0,
+      slug: 'getting-started',
+    },
+  ],
 } satisfies DataCollection;
