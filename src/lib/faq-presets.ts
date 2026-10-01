@@ -10,7 +10,7 @@ const base = {
 };
 
 const definitions: Array<[string, string, string, string, string, string, string]> = [
-  ['classic', 'Classic Accordion', 'Accordion', '#ffffff', '#0f172a', '#475569', '#2563eb'],
+  ['classic', 'Classic Accordion', 'Accordion', 'transparent', '#0f172a', '#475569', '#2563eb'],
   ['minimal', 'Minimal Lines', 'List', '#ffffff', '#111827', '#4b5563', '#111827'],
   ['cards', 'Soft Cards', 'Cards', '#f8fafc', '#0f172a', '#475569', '#2563eb'],
   ['dark', 'Midnight Support', 'Support', '#0f172a', '#f8fafc', '#cbd5e1', '#38bdf8'],

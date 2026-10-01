@@ -1,41 +1,96 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { items } from '@wix/data';
-import { dashboard } from '@wix/dashboard';
-import ReactQuill from 'react-quill';
-import { ArrowRight, ChevronDown, Minus, Plus } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { InfoTip, TooltipProvider } from '@/components/ui/tooltip';
 import { FAQ_PRESETS } from '@/lib/faq-presets';
+import { iconById } from '@/lib/faq-icons';
+import { FAQ_ITEMS, GROUPS } from '@/lib/faq-data';
 import type { FAQGroup, FAQItem } from '@/lib/faq-types';
+import { AnalyticsTab } from './analytics-tab';
+import { CreateGroupDialog } from './create-group-dialog';
+import { GroupDetail } from './group-detail';
+import { PricingPanel } from './pricing-panel';
+import { allQueryItems } from '@/lib/faq-query';
 import '@/styles/globals.css';
 import 'react-quill/dist/quill.snow.css';
 import './my-page.css';
 
-const GROUPS = '@admin14744/faq/faq-groups';
-const sampleQuestions = ['How does this work?', 'Can I customize the widget?', 'Where can I get help?'];
-const quillFormats = ['header', 'bold', 'italic', 'underline', 'strike', 'list', 'blockquote', 'link', 'image', 'video'];
+const sampleQuestions = ['How does this work?', 'Can I customize it?', 'Where can I get help?'];
+
 const Preview = ({ presetId }: { presetId: string }) => {
   const preset = FAQ_PRESETS.find((item) => item.id === presetId) ?? FAQ_PRESETS[0];
-  const Icon = preset.icon === 'chevron' ? ChevronDown : preset.icon === 'arrow' ? ArrowRight : preset.icon === 'minus' ? Minus : Plus;
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-  return <div className="preset-preview" style={{ background: preset.backgroundColor, color: preset.questionColor, borderColor: preset.borderColor }}><div className="preview-title" style={{ color: preset.questionColor }}>{preset.name}<span className="preview-hint">Click a question</span></div>{sampleQuestions.map((question, index) => { const isOpen = openIndex === index; return <div className="preview-item" key={question} style={{ borderColor: preset.borderColor }}><button className="preview-row" type="button" aria-expanded={isOpen} onClick={() => setOpenIndex(isOpen ? null : index)} style={{ borderColor: preset.borderColor, color: preset.questionColor }}><span>{question}</span><Icon className={isOpen ? 'preview-icon-open' : ''} size={14} strokeWidth={2} aria-hidden="true" color={preset.accentColor} /></button>{isOpen ? <div className="preview-answer" style={{ color: preset.answerColor }}>This is a sample answer showing how the {preset.name.toLowerCase()} preset handles expanded content.</div> : null}</div>; })}</div>;
+  const icon = iconById(preset.icon);
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  return <div className="preset-preview" style={{ background: preset.backgroundColor === 'transparent' ? '#fff' : preset.backgroundColor, color: preset.questionColor, borderColor: preset.borderColor }}>{sampleQuestions.map((question, index) => { const isOpen = openIndex === index; return <div className="preview-item" key={question} style={{ borderColor: preset.borderColor }}><button className="preview-row" type="button" aria-expanded={isOpen} onClick={() => setOpenIndex(isOpen ? null : index)} style={{ color: preset.questionColor }}><span>{question}</span><svg className={isOpen ? 'preview-icon-open' : ''} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={preset.accentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={icon.path} /></svg></button>{isOpen ? <div className="preview-answer" style={{ color: preset.answerColor }}>A sample answer in the {preset.name} style.</div> : null}</div>; })}</div>;
 };
 
 const DashboardPage = () => {
-  const [groups, setGroups] = useState<Array<FAQGroup>>([]); const [newTitle, setNewTitle] = useState(''); const [selectedPreset, setSelectedPreset] = useState('classic'); const [activeTab, setActiveTab] = useState('groups'); const [loading, setLoading] = useState(true); const [savingGroup, setSavingGroup] = useState(false); const [publishingId, setPublishingId] = useState<string | null>(null); const [savingItem, setSavingItem] = useState(false); const [selectedGroup, setSelectedGroup] = useState<FAQGroup | null>(null); const [groupItems, setGroupItems] = useState<Array<FAQItem>>([]); const [question, setQuestion] = useState(''); const [answer, setAnswer] = useState('');
-  const quillRef = useRef<ReactQuill>(null);
-  const openMediaManager = useCallback(async () => { try { const result = await dashboard.openMediaManager({ category: 'IMAGE', multiSelect: false }); const url = result?.items[0]?.url; if (!url) return; const editor = quillRef.current?.getEditor(); if (!editor) return; const selection = editor.getSelection(true); const index = selection?.index ?? editor.getLength(); editor.insertEmbed(index, 'image', url, 'user'); editor.setSelection(index + 1, 0, 'user'); } catch (error) { console.error('Failed to select image from Wix Media Manager:', error); toast.error('Could not select an image'); } }, []);
-  const quillModules = { toolbar: { container: [[{ header: [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote', 'link', 'image', 'video'], ['clean']], handlers: { image: () => void openMediaManager() } } };
-  const loadGroups = useCallback(async () => { try { const result = await items.query(GROUPS).descending('_createdDate').limit(100).find(); setGroups(result.items as unknown as Array<FAQGroup>); } catch (error) { console.error('Failed to load FAQ groups:', error); toast.error('Could not load FAQ groups'); } finally { setLoading(false); } }, []);
+  const [groups, setGroups] = useState<Array<FAQGroup>>([]);
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  const [activeTab, setActiveTab] = useState('groups');
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const selectedGroup = groups.find((group) => group._id === selectedGroupId) ?? null;
+
+  const loadGroups = useCallback(async () => {
+    try {
+      const [groupResult, itemResult] = await Promise.all([allQueryItems(items.query(GROUPS).descending('_createdDate')), allQueryItems(items.query(FAQ_ITEMS))]);
+      setGroups(groupResult as unknown as Array<FAQGroup>);
+      const next = new Map<string, number>();
+      for (const item of itemResult as unknown as Array<FAQItem>) next.set(item.groupId, (next.get(item.groupId) ?? 0) + 1);
+      setCounts(next);
+    } catch (error) { console.error('Failed to load FAQ groups:', error); toast.error('Could not load FAQ groups'); } finally { setLoading(false); }
+  }, []);
   useEffect(() => { void loadGroups(); }, [loadGroups]);
-  const createGroup = async () => { const title = newTitle.trim(); if (!title) { toast.error('Enter a group name first'); return; } const connectionKey = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).slice(2, 8)}`; setSavingGroup(true); try { await items.insert(GROUPS, { title, connectionKey, published: false, defaultLayout: selectedPreset, defaultPreset: selectedPreset, usageCount: 0 }); setNewTitle(''); toast.success('FAQ group created'); await loadGroups(); } catch (error) { console.error('Failed to create FAQ group:', error); toast.error('Could not create FAQ group'); } finally { setSavingGroup(false); } };
-  const togglePublished = async (group: FAQGroup) => { if (!group._id) return; setPublishingId(group._id); try { await items.update(GROUPS, { _id: group._id, title: group.title, connectionKey: group.connectionKey, description: group.description, published: !group.published, defaultLayout: group.defaultLayout, defaultPreset: group.defaultPreset, usageCount: group.usageCount }); toast.success(group.published ? 'Group unpublished' : 'Group published'); await loadGroups(); } catch (error) { console.error('Failed to update FAQ group:', error); toast.error('Could not update group'); } finally { setPublishingId(null); } };
-  const selectGroup = async (group: FAQGroup) => { if (!group._id) return; setSelectedGroup(group); try { const result = await items.query('@admin14744/faq/faq-items').eq('groupId', group._id).ascending('sortOrder').limit(100).find(); setGroupItems(result.items as unknown as Array<FAQItem>); } catch (error) { console.error('Failed to load FAQ items:', error); toast.error('Could not load FAQ items'); } };
-  const addItem = async () => { if (!selectedGroup?._id || !question.trim() || !answer.trim()) { toast.error('Add both a question and answer'); return; } setSavingItem(true); try { await items.insert('@admin14744/faq/faq-items', { groupId: selectedGroup._id, question: question.trim(), answer: answer.trim(), sortOrder: groupItems.length, published: true }); setQuestion(''); setAnswer(''); toast.success('FAQ item added'); await selectGroup(selectedGroup); } catch (error) { console.error('Failed to add FAQ item:', error); toast.error('Could not add FAQ item'); } finally { setSavingItem(false); } };
-  return <main className="dashboard-shell"><Toaster position="top-right" richColors /><header className="dashboard-header"><div><p className="eyebrow">FAQ WIDGET</p><h1>Content connections</h1><p className="subtitle">Create reusable FAQ groups, then connect each site widget with its own key.</p></div><div className="summary"><strong>{groups.length}</strong><span>groups</span></div></header><section className="create-grid"><Card><CardHeader><h2>Create an FAQ group</h2><p>Each group can power one or many widgets.</p></CardHeader><CardContent><div className="create-row"><Input aria-label="FAQ group name" placeholder="e.g. Product questions" value={newTitle} onChange={(event) => setNewTitle(event.target.value)} /><Button loading={savingGroup} onClick={() => void createGroup()}>Create group</Button></div></CardContent></Card><Card><CardHeader><h2>Default preset</h2><p>Fonts and colors are selected later in the Wix Editor panel.</p></CardHeader><CardContent><select className="dashboard-select" value={selectedPreset} onChange={(event) => setSelectedPreset(event.target.value)}>{FAQ_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></CardContent></Card></section><Tabs value={activeTab} onValueChange={setActiveTab} className="dashboard-tabs"><TabsList><TabsTrigger value="groups">FAQ groups</TabsTrigger><TabsTrigger value="presets">Preset styles</TabsTrigger></TabsList><TabsContent value="presets"><section><div className="section-heading"><div><h2>Preset previews</h2><p>See the visual style before applying it to a widget.</p></div><Badge>{FAQ_PRESETS.length} layouts</Badge></div><div className="preset-grid">{FAQ_PRESETS.map((preset) => <Card className="preset-card" key={preset.id}><CardContent><Preview presetId={preset.id} /><div className="preset-meta"><div><strong>{preset.name}</strong><span>{preset.category}</span></div><Button size="sm" variant="outline" onClick={() => { setSelectedPreset(preset.id); toast.success(`${preset.name} selected as default`); }}>Use preset</Button></div></CardContent></Card>)}</div></section></TabsContent><TabsContent value="groups"><section><div className="section-heading"><div><h2>FAQ groups</h2><p>Connect each widget to the group that matches its content.</p></div></div>{loading ? <p className="empty">Loading groups…</p> : groups.length === 0 ? <p className="empty">No groups yet. Create your first FAQ group above.</p> : <div className="group-list">{groups.map((group) => <Card key={group._id ?? group.connectionKey}><CardContent><div className="group-row"><div><strong>{group.title}</strong><span className="group-key">{group.connectionKey}</span></div><div className="group-actions"><Badge className={group.published ? 'badge-live' : ''}>{group.published ? 'Published' : 'Draft'}</Badge><Button size="sm" variant="outline" onClick={() => void selectGroup(group)}>Manage FAQs</Button><Button loading={publishingId === group._id} size="sm" variant="ghost" onClick={() => void togglePublished(group)}>{group.published ? 'Unpublish' : 'Publish'}</Button></div></div></CardContent></Card>)}</div>}</section>{selectedGroup ? <section className="item-editor"><div className="section-heading"><div><h2>{selectedGroup.title} FAQs</h2><p>Add published questions for widgets using <code>{selectedGroup.connectionKey}</code>.</p></div></div><Card><CardContent><div className="item-form"><Input aria-label="Question" placeholder="Question" value={question} onChange={(event) => setQuestion(event.target.value)} /><div className="answer-editor"><label htmlFor="faq-answer-editor">Answer</label><ReactQuill ref={quillRef} id="faq-answer-editor" theme="snow" value={answer} onChange={setAnswer} modules={quillModules} formats={quillFormats} placeholder="Write an answer, or insert an image/video from the toolbar" /></div><Button loading={savingItem} onClick={() => void addItem()}>Add FAQ</Button></div>{groupItems.length > 0 && <div className="item-list">{groupItems.map((item) => <div className="item-row" key={item._id ?? item.question}><strong>{item.question}</strong><div dangerouslySetInnerHTML={{ __html: item.answer }} /></div>)}</div>}</CardContent></Card></section> : null}</TabsContent></Tabs></main>;
+
+  const openGroup = (groupId: string) => { setSelectedGroupId(groupId); setActiveTab('groups'); window.scrollTo({ top: 0 }); };
+
+  return <TooltipProvider delayDuration={250}><main className="dashboard-shell"><Toaster position="top-right" richColors />
+    <header className="page-header">
+      <div>
+        <h1>FAQ</h1>
+        <p>Write your questions here, then add the FAQ widget to any page in the Wix Editor.</p>
+      </div>
+      <Button onClick={() => setCreateOpen(true)}><Plus size={16} />New FAQ group</Button>
+    </header>
+
+    <PricingPanel />
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="dashboard-tabs">
+      <TabsList><TabsTrigger value="groups">FAQ groups</TabsTrigger><TabsTrigger value="analytics">Analytics</TabsTrigger><TabsTrigger value="styles">Styles</TabsTrigger></TabsList>
+
+      <TabsContent value="groups">
+        {selectedGroup ? <GroupDetail group={selectedGroup} onBack={() => setSelectedGroupId(null)} onGroupChanged={loadGroups} />
+          : loading ? <div className="panel empty-state"><p>Loading…</p></div>
+          : groups.length === 0 ? <div className="panel empty-state empty-hero">
+            <span className="empty-emoji" aria-hidden="true">💬</span>
+            <h3>Create your first FAQ</h3>
+            <p>Start from scratch or pick a ready-made template for stores, restaurants, bookings and more.</p>
+            <Button onClick={() => setCreateOpen(true)}><Plus size={16} />New FAQ group</Button>
+          </div>
+          : <div className="group-grid">
+            {groups.map((group) => <button type="button" className="group-card" key={group._id ?? group.connectionKey} onClick={() => group._id && openGroup(group._id)}>
+              <span className="group-card-top"><Badge className={group.published ? 'badge-live' : 'badge-draft'}>{group.published ? 'Published' : 'Draft'}</Badge><ChevronRight size={18} className="group-card-arrow" aria-hidden="true" /></span>
+              <strong>{group.title}</strong>
+              <span className="group-card-count">{counts.get(group._id ?? '') ?? 0} questions</span>
+            </button>)}
+          </div>}
+        {!selectedGroup && groups.length > 0 ? <p className="page-tip">Tip: in the Wix Editor, add the <strong>FAQ Widget</strong> to a page, open its settings and choose a group under <em>Connection</em>.</p> : null}
+      </TabsContent>
+
+      <TabsContent value="analytics">{activeTab === 'analytics' ? <AnalyticsTab groups={groups} /> : null}</TabsContent>
+
+      <TabsContent value="styles">
+        <div className="section-intro"><h2>Style presets <InfoTip content="To apply a style, select the FAQ widget in the Wix Editor, open Settings → Connection → Layout preset. You can then fine-tune colors, fonts and icons." /></h2><p>Preview the {FAQ_PRESETS.length} built-in looks. Click questions to see them open.</p></div>
+        <div className="preset-grid">{FAQ_PRESETS.map((preset) => <div className="preset-card" key={preset.id}><Preview presetId={preset.id} /><div className="preset-meta"><strong>{preset.name}</strong><span>{preset.category}</span></div></div>)}</div>
+      </TabsContent>
+    </Tabs>
+
+    <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={async (groupId) => { await loadGroups(); openGroup(groupId); }} />
+  </main></TooltipProvider>;
 };
 export default DashboardPage;
