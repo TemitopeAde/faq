@@ -1,0 +1,13 @@
+/* Film-only: the product's CSS animates on its own clock (transitions, keyframes, hover).
+   Inside [data-film] everything is driven by the frame instead, so turn those clocks off. */
+[data-film], [data-film] *, [data-film] *::before, [data-film] *::after {
+  transition: none !important;
+  animation: none !important;
+  caret-color: transparent;
+}
+
+/* The app gets Tailwind's preflight from src/styles/globals.css. The twins don't load Tailwind, so
+   apply the same button/heading reset at zero specificity (:where) so the app's classes still win. */
+:where([data-film]) button { border: 0 solid; background: transparent; font: inherit; color: inherit; padding: 0; margin: 0; }
+:where([data-film]) h1, :where([data-film]) h2, :where([data-film]) h3, :where([data-film]) p { margin: 0; }
+:where([data-film]) ol, :where([data-film]) ul { list-style: none; margin: 0; padding: 0; }

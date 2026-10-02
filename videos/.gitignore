@@ -1,0 +1,6 @@
+node_modules/
+out/
+public/audio/**/music/
+public/review/
+public/audio/**/*.mp3
+public/audio/**/*.wav

@@ -1,4 +1,4 @@
-import React, { type FC, useCallback, useEffect, useState } from 'react';
+import React, { type FC, useCallback, useEffect, useRef, useState } from 'react';
 import { items } from '@wix/data';
 import { inputs, widget } from '@wix/editor';
 import { Accordion, Box, Button, Dropdown, FillPreview, FormField, Input, SectionHelper, SidePanel, Slider, ToggleSwitch, WixDesignSystemProvider, listItemSelectBuilder } from '@wix/design-system';
@@ -37,16 +37,39 @@ const iconOptions = FAQ_ICONS.map((icon) => listItemSelectBuilder({ id: icon.id,
 
 const readFont = (value: string): FontValue => { try { const parsed: unknown = JSON.parse(value); if (typeof parsed === 'object' && parsed !== null && 'font' in parsed && typeof parsed.font === 'string') return { font: parsed.font, textDecoration: 'textDecoration' in parsed && typeof parsed.textDecoration === 'string' ? parsed.textDecoration : '' }; } catch (error) { console.error('Failed to parse widget font:', error); } return defaults.questionFont; };
 
+const fontFamilyLabel = (value: string): string => {
+  const { font } = readFont(value);
+  if (typeof document === 'undefined') return font;
+  const style = document.createElement('span').style;
+  style.font = font;
+  return style.fontFamily || font;
+};
+
 const Panel: FC = () => {
   const [values, setValues] = useState<PanelValues>(initialValues);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const fontPreloadQueue = useRef<Promise<void>>(Promise.resolve());
   const [connectionOptions, setConnectionOptions] = useState<Array<ConnectionOption>>([]);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
-  useEffect(() => { void Promise.all(Object.keys(initialValues).map(async (key) => { try { const value = await widget.getProp(key); if (value) setValues((current) => ({ ...current, [key]: value })); } catch (error) { console.error(`Failed to load widget property ${key}:`, error); } })); }, []);
+  useEffect(() => { void Promise.all(Object.keys(initialValues).map(async (key) => { try { const value = await widget.getProp(key); if (value) setValues((current) => ({ ...current, [key]: value })); } catch (error) { console.error(`Failed to load widget property ${key}:`, error); } })).then(() => setSettingsLoaded(true)); }, []);
+  const questionFontValue = values['question-font'] ?? initialValues['question-font'];
+  const answerFontValue = values['answer-font'] ?? initialValues['answer-font'];
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    const fonts = [...new Set([
+      readFont(questionFontValue ?? JSON.stringify(defaults.questionFont)).font,
+      readFont(answerFontValue ?? JSON.stringify(defaults.answerFont)).font,
+    ])];
+    // Each call replaces the list; serialize updates so the latest selection wins.
+    fontPreloadQueue.current = fontPreloadQueue.current
+      .then(() => widget.setPreloadFonts(fonts))
+      .catch((error) => { console.error('Failed to preload FAQ widget fonts:', error); });
+  }, [settingsLoaded, questionFontValue, answerFontValue]);
   useEffect(() => { void allQueryItems(items.query(GROUPS).ascending('title')).then((result) => { setConnectionOptions(result.map((group) => ({ id: String(group.connectionKey ?? ''), value: String(group.title ?? group.connectionKey ?? ''), label: String(group.title ?? group.connectionKey ?? '') })).filter((option) => option.id)); }).catch((error) => { console.error('Failed to load FAQ groups for the connection dropdown:', error); }).finally(() => setConnectionsLoading(false)); }, []);
   const setValue = useCallback((key: string, value: string) => { setValues((current) => ({ ...current, [key]: value })); void widget.setProp(key, value); }, []);
   const applyPreset = useCallback((id: string) => { const preset = presetById(id); const next: PanelValues = { ...values, layout: preset.id, 'background-color': preset.backgroundColor, 'question-color': preset.questionColor, 'answer-color': preset.answerColor, 'accent-color': preset.accentColor, 'border-color': preset.borderColor, 'icon-color': preset.iconColor, 'icon': preset.icon, 'icon-size': String(preset.iconSize), radius: String(preset.radius), gap: String(preset.gap), 'question-font': JSON.stringify(preset.questionFont), 'answer-font': JSON.stringify(preset.answerFont) }; setValues(next); void Promise.all(Object.entries(next).map(([key, value]) => widget.setProp(key, value))); }, [values]);
   const chooseColor = useCallback((key: string) => { const value = values[key] ?? '#ffffff'; void inputs.selectColor(value, { onChange: (next) => { if (next) setValue(key, next); } }); }, [setValue, values]);
-  const chooseFont = useCallback((key: string) => { const value = readFont(values[key] ?? JSON.stringify(defaults.questionFont)); void inputs.selectFont(value, { onChange: (next) => { const font = { font: next.font, textDecoration: next.textDecoration ?? '' }; setValue(key, JSON.stringify(font)); void widget.setPreloadFonts([font.font]); } }); }, [setValue, values]);
+  const chooseFont = useCallback((key: string) => { const value = readFont(values[key] ?? JSON.stringify(defaults.questionFont)); void inputs.selectFont(value, { onChange: (next) => { const font = { font: next.font, textDecoration: next.textDecoration ?? '' }; setValue(key, JSON.stringify(font)); } }); }, [setValue, values]);
   const toggle = (key: string, label: string, info?: string) => <SidePanel.Field><FormField label={label} infoContent={info} labelPlacement="left" stretchContent={false}><ToggleSwitch size="small" checked={values[key] === 'true'} onChange={(event) => setValue(key, String(event.target.checked))} /></FormField></SidePanel.Field>;
   const select = (key: string, label: string, options: Array<{ id: string; value: string }>) => <SidePanel.Field><FormField label={label}><Dropdown ariaLabel={label} size="small" selectedId={values[key]} options={options} onSelect={(option) => setValue(key, String(option.id))} /></FormField></SidePanel.Field>;
   const toggleable = values.display === 'accordion' || values.display === 'grid';
@@ -70,7 +93,7 @@ const Panel: FC = () => {
           title: 'Connection',
           initiallyOpen: false,
           children: <>
-            <SidePanel.Field><FormField label="FAQ connection key"><Dropdown ariaLabel="FAQ connection key" placeholder={connectionsLoading ? 'Loading FAQ groups…' : 'Select an FAQ group'} size="small" selectedId={selectedConnectionKey} options={selectedConnectionOption} valueParser={(option) => option.value} onSelect={(option) => setValue('connection-key', String(option.id))} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label="FAQ connection key" infoContent="Each widget has its own settings. To link to a question, append its anchor from the dashboard to the page URL."><Dropdown ariaLabel="FAQ connection key" placeholder={connectionsLoading ? 'Loading FAQ groups…' : 'Select an FAQ group'} size="small" selectedId={selectedConnectionKey} options={selectedConnectionOption} valueParser={(option) => option.value} onSelect={(option) => setValue('connection-key', String(option.id))} /></FormField></SidePanel.Field>
             <SidePanel.Field><FormField label="Layout preset"><Dropdown ariaLabel="Layout preset" placeholder="Select a layout preset" size="small" selectedId={selectedPreset} options={presetOptions} valueParser={(option) => option.value} onSelect={(option) => applyPreset(String(option.id))} /></FormField></SidePanel.Field>
           </>,
         },
@@ -103,8 +126,8 @@ const Panel: FC = () => {
           title: 'Typography',
           initiallyOpen: false,
           children: <>
-            <SidePanel.Field><FormField label="Question font"><Button fullWidth priority="secondary" onClick={() => chooseFont('question-font')}>Change question font</Button></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Answer font"><Button fullWidth priority="secondary" onClick={() => chooseFont('answer-font')}>Change answer font</Button></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label="Question font"><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('question-font')}>{fontFamilyLabel(values['question-font'] ?? JSON.stringify(defaults.questionFont))}</Button></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label="Answer font"><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('answer-font')}>{fontFamilyLabel(values['answer-font'] ?? JSON.stringify(defaults.answerFont))}</Button></FormField></SidePanel.Field>
           </>,
         },
         {
@@ -163,7 +186,7 @@ const Panel: FC = () => {
         },
       ]}
     />
-  </SidePanel.Content><SidePanel.Footer><SectionHelper>Each widget keeps its own settings. Link to a question by adding its anchor (copy it from the dashboard) to the page URL.</SectionHelper></SidePanel.Footer></SidePanel></WixDesignSystemProvider>;
+  </SidePanel.Content></SidePanel></WixDesignSystemProvider>;
 };
 
 export default Panel;

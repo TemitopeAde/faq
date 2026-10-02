@@ -1,0 +1,266 @@
+{
+ "bpm": 119.953,
+ "firstBeat": 0.0,
+ "pickupBeats": 0,
+ "beatsPerBar": 4,
+ "gridCheckMs": {
+  "medianOffset": 9.977324263038549
+ },
+ "bars": [
+  {
+   "index": 1,
+   "start": 0.0,
+   "loudnessDb": -24.4
+  },
+  {
+   "index": 2,
+   "start": 2.001,
+   "loudnessDb": -19.5
+  },
+  {
+   "index": 3,
+   "start": 4.002,
+   "loudnessDb": -20.6
+  },
+  {
+   "index": 4,
+   "start": 6.002,
+   "loudnessDb": -19.5
+  },
+  {
+   "index": 5,
+   "start": 8.003,
+   "loudnessDb": -20.4
+  },
+  {
+   "index": 6,
+   "start": 10.004,
+   "loudnessDb": -20.0
+  },
+  {
+   "index": 7,
+   "start": 12.005,
+   "loudnessDb": -21.3
+  },
+  {
+   "index": 8,
+   "start": 14.006,
+   "loudnessDb": -19.5
+  },
+  {
+   "index": 9,
+   "start": 16.006,
+   "loudnessDb": -20.1
+  },
+  {
+   "index": 10,
+   "start": 18.007,
+   "loudnessDb": -14.0
+  },
+  {
+   "index": 11,
+   "start": 20.008,
+   "loudnessDb": -13.9
+  },
+  {
+   "index": 12,
+   "start": 22.009,
+   "loudnessDb": -13.8
+  },
+  {
+   "index": 13,
+   "start": 24.009,
+   "loudnessDb": -13.9
+  },
+  {
+   "index": 14,
+   "start": 26.01,
+   "loudnessDb": -13.3
+  },
+  {
+   "index": 15,
+   "start": 28.011,
+   "loudnessDb": -13.8
+  },
+  {
+   "index": 16,
+   "start": 30.012,
+   "loudnessDb": -13.3
+  },
+  {
+   "index": 17,
+   "start": 32.013,
+   "loudnessDb": -13.7
+  },
+  {
+   "index": 18,
+   "start": 34.013,
+   "loudnessDb": -13.8
+  },
+  {
+   "index": 19,
+   "start": 36.014,
+   "loudnessDb": -13.8
+  },
+  {
+   "index": 20,
+   "start": 38.015,
+   "loudnessDb": -13.5
+  },
+  {
+   "index": 21,
+   "start": 40.016,
+   "loudnessDb": -13.7
+  },
+  {
+   "index": 22,
+   "start": 42.017,
+   "loudnessDb": -13.1
+  },
+  {
+   "index": 23,
+   "start": 44.017,
+   "loudnessDb": -13.7
+  },
+  {
+   "index": 24,
+   "start": 46.018,
+   "loudnessDb": -13.1
+  },
+  {
+   "index": 25,
+   "start": 48.019,
+   "loudnessDb": -13.6
+  },
+  {
+   "index": 26,
+   "start": 50.02,
+   "loudnessDb": -13.0
+  },
+  {
+   "index": 27,
+   "start": 52.02,
+   "loudnessDb": -13.6
+  },
+  {
+   "index": 28,
+   "start": 54.021,
+   "loudnessDb": -12.9
+  },
+  {
+   "index": 29,
+   "start": 56.022,
+   "loudnessDb": -13.6
+  },
+  {
+   "index": 30,
+   "start": 58.023,
+   "loudnessDb": -12.6
+  },
+  {
+   "index": 31,
+   "start": 60.024,
+   "loudnessDb": -13.6
+  },
+  {
+   "index": 32,
+   "start": 62.024,
+   "loudnessDb": -12.5
+  },
+  {
+   "index": 33,
+   "start": 64.025,
+   "loudnessDb": -13.5
+  },
+  {
+   "index": 34,
+   "start": 66.026,
+   "loudnessDb": -13.0
+  },
+  {
+   "index": 35,
+   "start": 68.027,
+   "loudnessDb": -13.3
+  },
+  {
+   "index": 36,
+   "start": 70.028,
+   "loudnessDb": -13.0
+  },
+  {
+   "index": 37,
+   "start": 72.028,
+   "loudnessDb": -13.7
+  },
+  {
+   "index": 38,
+   "start": 74.029,
+   "loudnessDb": -12.4
+  },
+  {
+   "index": 39,
+   "start": 76.03,
+   "loudnessDb": -13.2
+  },
+  {
+   "index": 40,
+   "start": 78.031,
+   "loudnessDb": -12.6
+  },
+  {
+   "index": 41,
+   "start": 80.032,
+   "loudnessDb": -13.5
+  },
+  {
+   "index": 42,
+   "start": 82.032,
+   "loudnessDb": -19.6
+  },
+  {
+   "index": 43,
+   "start": 84.033,
+   "loudnessDb": -20.9
+  },
+  {
+   "index": 44,
+   "start": 86.034,
+   "loudnessDb": -19.8
+  },
+  {
+   "index": 45,
+   "start": 88.035,
+   "loudnessDb": -20.4
+  },
+  {
+   "index": 46,
+   "start": 90.035,
+   "loudnessDb": -19.7
+  },
+  {
+   "index": 47,
+   "start": 92.036,
+   "loudnessDb": -20.7
+  },
+  {
+   "index": 48,
+   "start": 94.037,
+   "loudnessDb": -19.9
+  },
+  {
+   "index": 49,
+   "start": 96.038,
+   "loudnessDb": -20.3
+  },
+  {
+   "index": 50,
+   "start": 98.039,
+   "loudnessDb": -31.6
+  },
+  {
+   "index": 51,
+   "start": 100.039,
+   "loudnessDb": -48.4
+  }
+ ]
+}

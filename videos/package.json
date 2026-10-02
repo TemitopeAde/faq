@@ -1,0 +1,24 @@
+{
+  "name": "faq-studio-videos",
+  "private": true,
+  "type": "module",
+  "description": "FAQ Studio promo film and logo, built with Remotion from the app's real UI. Kept out of the Wix app build.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "stills": "node scripts/stills.ts",
+    "render": "node scripts/render.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.532",
+    "@remotion/cli": "4.0.532",
+    "@remotion/google-fonts": "4.0.532",
+    "@remotion/renderer": "4.0.532",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "typescript": "^5.8.3"
+  }
+}
