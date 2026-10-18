@@ -37,6 +37,17 @@ const request = (properties: Record<string, unknown>, required: string[] = []) =
 
 export const faqToolDefinitions = [
   {
+    methodName: 'get-faq-widget-connection', displayName: 'Connect FAQ widget',
+    description: 'Returns the connection key and native Harmony component settings for an existing FAQ group. Use when a user wants to connect, display or troubleshoot FAQs in a widget. Requires groupId from list-faq-groups. This reads configuration only; it does not add a widget to the page, edit the canvas or publish content.',
+    requestSchema: request({ groupId: text('Existing group ID from list-faq-groups.') }, ['groupId']),
+    responseSchema: { type: 'object', properties: {
+      group, componentType: text('Native Editor React Component type for Wix Harmony.'),
+      props: { type: 'object', properties: { connectionKey: text('Set this exact connectionKey prop on the Harmony widget.'), heading: text('Suggested heading from the FAQ group title.') } },
+      customElement: { type: 'object', properties: { tagName: { type: 'string' }, attributes: { type: 'object', properties: { 'connection-key': { type: 'string' } } } } },
+      instructions: text('How to connect the widget and publication requirements.'),
+    } }, activated: true,
+  },
+  {
     methodName: 'list-faq-groups', displayName: 'Find FAQ groups',
     description: 'Lists FAQ groups, including drafts, with IDs, titles, content and widget connection keys. Use to find a group before editing or publishing it. Supports text search, publication filtering and pagination; pass nextOffset as offset to continue.',
     requestSchema: request(pagination), responseSchema: page(group), activated: true,

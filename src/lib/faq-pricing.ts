@@ -2,6 +2,7 @@ export const FAQ_APP_ID = '3549153b-66a8-4ba3-aa1d-364430057098';
 export const PRO_MONTHLY_USD = 5;
 export const PRO_YEARLY_USD = 48;
 export const TRIAL_DAYS = 3;
+export const REVIEW_URL = `https://www.wix.com/app-market/add-review/${FAQ_APP_ID}`;
 
 export type FAQEntitlement = {
   plan: 'basic' | 'trial' | 'pro';

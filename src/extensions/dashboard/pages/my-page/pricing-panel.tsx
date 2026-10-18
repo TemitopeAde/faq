@@ -1,8 +1,8 @@
-import { useFAQEntitlement } from '@/lib/use-faq-entitlement';
-import { PRO_MONTHLY_USD, PRO_YEARLY_USD, TRIAL_DAYS } from '@/lib/faq-pricing';
+import { PRO_MONTHLY_USD, PRO_YEARLY_USD, TRIAL_DAYS, type FAQEntitlement } from '@/lib/faq-pricing';
 
-export const PricingPanel = () => {
-  const { entitlement, loading, error } = useFAQEntitlement();
+type PricingPanelProps = { entitlement: FAQEntitlement | null; loading: boolean; error: string | null };
+
+export const PricingPanel = ({ entitlement, loading, error }: PricingPanelProps) => {
   if (loading || error || !entitlement || entitlement.canUseLive) return null;
   return <section className="pricing-panel panel" aria-label="FAQ subscription">
     <div className="pricing-copy" aria-live="polite">

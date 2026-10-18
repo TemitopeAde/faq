@@ -14,6 +14,8 @@ import { AnalyticsTab } from './analytics-tab';
 import { CreateGroupDialog } from './create-group-dialog';
 import { GroupDetail } from './group-detail';
 import { PricingPanel } from './pricing-panel';
+import { ReviewPromptDialog } from './review-prompt-dialog';
+import { useFAQEntitlement } from '@/lib/use-faq-entitlement';
 import { allQueryItems } from '@/lib/faq-query';
 import '@/styles/globals.css';
 import 'react-quill/dist/quill.snow.css';
@@ -35,6 +37,7 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const { entitlement, loading: entitlementLoading, error: entitlementError } = useFAQEntitlement();
   const selectedGroup = groups.find((group) => group._id === selectedGroupId) ?? null;
 
   const loadGroups = useCallback(async () => {
@@ -59,7 +62,7 @@ const DashboardPage = () => {
       <Button onClick={() => setCreateOpen(true)}><Plus size={16} />New FAQ group</Button>
     </header>
 
-    <PricingPanel />
+    <PricingPanel entitlement={entitlement} loading={entitlementLoading} error={entitlementError} />
     <Tabs value={activeTab} onValueChange={setActiveTab} className="dashboard-tabs">
       <TabsList><TabsTrigger value="groups">FAQ groups</TabsTrigger><TabsTrigger value="analytics">Analytics</TabsTrigger><TabsTrigger value="styles">Styles</TabsTrigger></TabsList>
 
@@ -91,6 +94,7 @@ const DashboardPage = () => {
     </Tabs>
 
     <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={async (groupId) => { await loadGroups(); openGroup(groupId); }} />
+    <ReviewPromptDialog entitlement={entitlement} />
   </main></TooltipProvider>;
 };
 export default DashboardPage;

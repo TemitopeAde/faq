@@ -77,6 +77,17 @@ export function createFAQToolRunner(store: FAQToolStore, uniqueId: () => string 
       if (published !== undefined) options.published = published;
       return { ...await store.list(methodName === 'list-faq-groups' ? 'groups' : 'questions', options) };
     }
+    if (methodName === 'get-faq-widget-connection') {
+      const id = stringValue(payload, 'groupId', true) ?? '';
+      const group = await existing(store, 'groups', id);
+      const connectionKey = stringValue(group, 'connectionKey', true) ?? '';
+      return {
+        group, componentType: 'faq_app.FaqHarmony',
+        props: { connectionKey, heading: typeof group.title === 'string' ? group.title : '' },
+        customElement: { tagName: 'faq-widget', attributes: { 'connection-key': connectionKey } },
+        instructions: 'In Wix Harmony, add FAQ Harmony and set its connectionKey to the returned key. In the existing FAQ Widget settings, set Connection Key to the same value. Publish the group and its questions to display them on the live site; live FAQs require an eligible plan. This tool does not place widgets on the page.',
+      };
+    }
     if (methodName === 'create-faq-group') {
       const fields = changes(payload, 'groups', true);
       const title = stringValue(payload, 'title', true) ?? '';
