@@ -51,9 +51,65 @@ export default extensions.editorReactComponent({
   editorElement: merge(
     editorElementWithDefaults,
     {
+      data: {
+        language: { displayName: 'Language', dataType: DATA.DATA_TYPE.text, text: {} },
+        showSearch: { displayName: 'Show Search', dataType: DATA.DATA_TYPE.booleanValue },
+        showCategories: { displayName: 'Show Categories', dataType: DATA.DATA_TYPE.booleanValue },
+        showExpandAll: { displayName: 'Show Expand All', dataType: DATA.DATA_TYPE.booleanValue },
+        showHeading: { displayName: 'Show Heading', dataType: DATA.DATA_TYPE.booleanValue },
+        showDescription: { displayName: 'Show Description', dataType: DATA.DATA_TYPE.booleanValue },
+        showIcon: { displayName: 'Show Icon', dataType: DATA.DATA_TYPE.booleanValue },
+        showHelp: { displayName: 'Show Help', dataType: DATA.DATA_TYPE.booleanValue },
+        helpText: { displayName: 'Help Text', dataType: DATA.DATA_TYPE.text, text: {} },
+        helpLabel: { displayName: 'Help Label', dataType: DATA.DATA_TYPE.text, text: {} },
+        helpLink: { displayName: 'Help Link', dataType: DATA.DATA_TYPE.text, text: {} },
+        layout: { displayName: 'Preset', dataType: DATA.DATA_TYPE.text, text: {} },
+        icon: { displayName: 'Icon', dataType: DATA.DATA_TYPE.text, text: {} },
+        backgroundColor: { displayName: 'Background Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        questionColor: { displayName: 'Question Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        answerColor: { displayName: 'Answer Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        accentColor: { displayName: 'Accent Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        borderColor: { displayName: 'Border Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        questionFont: { displayName: 'Question Font', dataType: DATA.DATA_TYPE.text, text: {} },
+        answerFont: { displayName: 'Answer Font', dataType: DATA.DATA_TYPE.text, text: {} },
+        iconColor: { displayName: 'Icon Color', dataType: DATA.DATA_TYPE.text, text: {} },
+        iconSize: { displayName: 'Icon Size', dataType: DATA.DATA_TYPE.number },
+        radius: { displayName: 'Corner Radius', dataType: DATA.DATA_TYPE.number },
+        gap: { displayName: 'Item Gap', dataType: DATA.DATA_TYPE.number },
+        padding: { displayName: 'Padding', dataType: DATA.DATA_TYPE.number },
+        animation: { displayName: 'Animation', dataType: DATA.DATA_TYPE.text, text: {} },
+        hoverEffect: { displayName: 'Hover Effect', dataType: DATA.DATA_TYPE.text, text: {} },
+        marginTop: { displayName: 'Margin Top', dataType: DATA.DATA_TYPE.number },
+        marginRight: { displayName: 'Margin Right', dataType: DATA.DATA_TYPE.number },
+        marginBottom: { displayName: 'Margin Bottom', dataType: DATA.DATA_TYPE.number },
+        marginLeft: { displayName: 'Margin Left', dataType: DATA.DATA_TYPE.number },
+      },
+      elements: {
+        faqHarmonyHeading: {
+          inlineElement: {
+            cssProperties: {
+              font: { defaultValue: '650 24px system-ui, sans-serif' },
+            },
+          },
+        },
+        faqHarmonyDescription: {
+          inlineElement: {
+            cssProperties: {
+              font: { defaultValue: '400 15px system-ui, sans-serif' },
+            },
+          },
+        },
+      },
       layout: {
         resizeDirection: LAYOUT.RESIZE_DIRECTION.horizontal,
         contentResizeDirection: LAYOUT.CONTENT_RESIZE_DIRECTION.vertical,
+      },
+      // Thumbnail shown in the Harmony / Studio "Add elements" panel.
+      presets: {
+        default: {
+          displayName: 'FAQ Harmony',
+          thumbnailUrl: '{{BASE_URL}}/faq-widget-thumbnail-v2.png',
+        },
       },
     }
   ),

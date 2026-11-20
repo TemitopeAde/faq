@@ -1,7 +1,7 @@
 import { httpClient } from '@wix/essentials';
 import type { AnalyticsRange, AnalyticsResponse, FAQEventInput } from './faq-analytics';
 import type { FAQEntitlement } from './faq-pricing';
-import type { FAQGroup, FAQItem } from './faq-types';
+import type { FAQGroup, FAQItem, FAQSection } from './faq-types';
 
 const apiOrigin = new URL(import.meta.url).origin;
 
@@ -16,8 +16,19 @@ export const fetchFAQEntitlement = async (): Promise<FAQEntitlement> => {
   return response.json();
 };
 
-export const fetchFAQContent = async (connectionKey: string, testing: boolean): Promise<{ group: FAQGroup | null; faqItems: Array<FAQItem> } | null> => {
+export const fetchFAQContent = async (connectionKey: string, testing: boolean, language?: string): Promise<{ group: FAQGroup | null; faqItems: Array<FAQItem> } | null> => {
   const query = new URLSearchParams({ connectionKey, mode: testing ? 'testing' : 'live' });
+  if (language?.trim()) query.set('language', language.trim());
+  const response = await requestFAQ(`faq-content?${query}`);
+  if (response.status === 403 && !testing) return null;
+  if (!response.ok) throw new Error('Could not load FAQ content.');
+  return response.json();
+};
+
+// Every group with its questions, oldest group first. Live requests return published groups that have questions.
+export const fetchAllFAQContent = async (testing: boolean, language?: string): Promise<{ groups: Array<FAQSection> } | null> => {
+  const query = new URLSearchParams({ scope: 'all', mode: testing ? 'testing' : 'live' });
+  if (language?.trim()) query.set('language', language.trim());
   const response = await requestFAQ(`faq-content?${query}`);
   if (response.status === 403 && !testing) return null;
   if (!response.ok) throw new Error('Could not load FAQ content.');

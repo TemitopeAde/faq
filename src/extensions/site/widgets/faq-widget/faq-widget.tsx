@@ -3,11 +3,12 @@ import styles from './faq-widget.module.css';
 import { presetById } from '../../../../lib/faq-presets';
 import { iconById, iconSvg } from '../../../../lib/faq-icons';
 import { categoriesOf, itemAnchors } from '../../../../lib/faq-data';
-import { fetchFAQContent, recordFAQEvent } from '../../../../lib/faq-api';
-import type { FAQEventType, FAQGroup, FAQItem, FontValue } from '../../../../lib/faq-types';
+import { fetchAllFAQContent, recordFAQEvent } from '../../../../lib/faq-api';
+import { getSiteLanguage, getUIStrings, isRTL } from '../../../../lib/faq-i18n';
+import type { FAQEventType, FAQGroup, FAQItem, FAQSection, FontValue } from '../../../../lib/faq-types';
 
 type Display = 'accordion' | 'grid' | 'cards' | 'tabs';
-type WidgetData = { group: FAQGroup | null; faqItems: Array<FAQItem>; message: string; isEditor: boolean };
+type WidgetData = { group: FAQGroup | null; faqItems: Array<FAQItem>; sections: Array<FAQSection>; message: string; isEditor: boolean };
 
 const DISPLAYS: Array<Display> = ['accordion', 'grid', 'cards', 'tabs'];
 const SEARCH_TRACK_DELAY = 1200;
@@ -35,6 +36,8 @@ const readSession = (key: string): string | null => { try { return window.sessio
 const writeSession = (key: string, value: string): void => { try { window.sessionStorage.setItem(key, value); } catch { /* storage unavailable */ } };
 
 class FAQWidget extends HTMLElement {
+  private activeLanguage = '';
+  private activeGroupId = '';
   private renderToken = 0;
   private fetchQueued = false;
   private data: WidgetData | null = null;
@@ -48,7 +51,7 @@ class FAQWidget extends HTMLElement {
   private readonly trackedOpens = new Set<string>();
   private readonly onHashChange = (): void => this.openFromHash();
 
-  static get observedAttributes(): Array<string> { return ['connection-key', 'layout', 'heading', 'description', 'background-color', 'question-color', 'answer-color', 'accent-color', 'border-color', 'question-font', 'answer-font', 'icon', 'icon-color', 'icon-size', 'radius', 'gap', 'padding', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'initially-open', 'display', 'show-search', 'search-placeholder', 'show-categories', 'show-expand-all', 'single-open', 'show-feedback', 'seo-schema', 'animation', 'hover-effect', 'show-help', 'help-text', 'help-label', 'help-link', 'show-heading', 'show-description', 'show-icon']; }
+  static get observedAttributes(): Array<string> { return ['connection-key', 'language', 'layout', 'heading', 'description', 'background-color', 'question-color', 'answer-color', 'accent-color', 'border-color', 'question-font', 'answer-font', 'icon', 'icon-color', 'icon-size', 'radius', 'gap', 'padding', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'initially-open', 'display', 'show-search', 'search-placeholder', 'show-categories', 'show-expand-all', 'single-open', 'show-feedback', 'seo-schema', 'animation', 'hover-effect', 'show-help', 'help-text', 'help-label', 'help-link', 'show-heading', 'show-description', 'show-icon']; }
 
   connectedCallback(): void {
     window.addEventListener('hashchange', this.onHashChange);
@@ -63,12 +66,14 @@ class FAQWidget extends HTMLElement {
     window.clearTimeout(this.searchTimer);
     window.clearInterval(this.accessTimer);
   }
-  // Only a new connection key needs fresh data; style and behaviour changes re-render what is already loaded.
-  attributeChangedCallback(name: string): void { if (name === 'connection-key' || !this.data) this.queueFetch(); else this.renderMarkup(); }
+  // Only a new connection key or language change needs fresh data; style and behaviour changes re-render what is already loaded.
+  attributeChangedCallback(name: string): void { if (name === 'connection-key') this.activeGroupId = ''; if (name === 'connection-key' || name === 'language' || !this.data) this.queueFetch(); else this.renderMarkup(); }
 
   private getSetting(name: string, fallback: string): string { return this.getAttribute(name) || fallback; }
+  // Visitor-facing text: empty (or the untouched English default) shows the default in the visitor's language.
+  private getText(name: string, englishDefault: string, localized: string): string { const value = this.getAttribute(name)?.trim(); return !value || value === englishDefault ? localized : value; }
   private flag(name: string, fallback: boolean): boolean { return this.getSetting(name, String(fallback)) === 'true'; }
-  private get display(): Display { const value = this.getSetting('display', 'accordion'); return DISPLAYS.includes(value as Display) ? value as Display : 'accordion'; }
+  private get display(): Display { const value = this.getSetting('display', presetById(this.getSetting('layout', 'classic')).display); return DISPLAYS.includes(value as Display) ? value as Display : 'accordion'; }
 
   private queueFetch(): void {
     if (this.fetchQueued) return;
@@ -85,27 +90,48 @@ class FAQWidget extends HTMLElement {
       const viewMode = await wixWindow.viewMode();
       isEditor = viewMode === 'Editor' || viewMode === 'Preview';
       if (token !== this.renderToken) return;
-      if (!connectionKey) {
-        if (isEditor) finish({ group: null, faqItems: [], message: 'Add a connection key to display your FAQs.', isEditor });
+      const explicitLang = this.getSetting('language', '');
+      const siteLang = await getSiteLanguage();
+      this.activeLanguage = explicitLang || siteLang || '';
+      const strings = getUIStrings(this.activeLanguage);
+      // Every group is loaded and shown as a tab; the connection key only picks the tab that opens first.
+      const result = await fetchAllFAQContent(isEditor, this.activeLanguage);
+      if (token !== this.renderToken) return;
+      const sections = result?.groups ?? [];
+      if (!sections.length) {
+        if (isEditor && result) finish({ group: null, faqItems: [], sections: [], message: strings.editorAddItems, isEditor });
         else { this.data = null; this.anchors = []; this.replaceChildren(); }
         return;
       }
-      const result = await fetchFAQContent(connectionKey, isEditor);
-      if (token !== this.renderToken) return;
-      if (!result) { this.data = null; this.anchors = []; this.replaceChildren(); return; }
-      const { group, faqItems } = result;
-      if (!group?._id) {
-        finish({ group: null, faqItems: [], message: isEditor ? 'This connection key does not match an FAQ group.' : 'This connection key is invalid or unpublished.', isEditor });
-        return;
-      }
-      const emptyMessage = isEditor ? 'Add FAQ items to this group to preview them here.' : 'No published FAQs are available yet.';
-      finish({ group, faqItems, message: group.description || emptyMessage, isEditor });
+      const active = sections.find((section) => section.group._id === this.activeGroupId)
+        ?? sections.find((section) => connectionKey && section.group.connectionKey === connectionKey) ?? sections[0];
+      this.activeGroupId = active.group._id ?? '';
+      finish(this.sectionData(active, sections, isEditor));
     } catch (error) {
       console.error('Failed to load FAQ group:', error);
       if (token !== this.renderToken) return;
-      if (isEditor) finish({ group: null, faqItems: [], message: 'Could not load FAQs. Check your plan status in the dashboard and retry.', isEditor });
+      if (isEditor) finish({ group: null, faqItems: [], sections: [], message: getUIStrings(this.activeLanguage).editorLoadError, isEditor });
       else { this.data = null; this.anchors = []; this.replaceChildren(); }
     }
+  }
+
+  private sectionData(section: FAQSection, sections: Array<FAQSection>, isEditor: boolean): WidgetData {
+    const strings = getUIStrings(this.activeLanguage);
+    return { group: section.group, faqItems: section.faqItems, sections, isEditor, message: section.group.description || (isEditor ? strings.editorAddItems : strings.noPublished) };
+  }
+
+  // Switches the visible group tab. Search and category filters belong to a group, so they reset.
+  private selectGroup(groupId: string, focus = false): void {
+    const section = this.data?.sections.find((candidate) => candidate.group._id === groupId);
+    if (!this.data || !section) return;
+    if (groupId !== this.activeGroupId) {
+      this.activeGroupId = groupId;
+      this.data = this.sectionData(section, this.data.sections, this.data.isEditor);
+      this.anchors = itemAnchors(section.faqItems);
+      this.query = ''; this.category = ''; this.lastTrackedQuery = '';
+      this.renderMarkup();
+    }
+    if (focus) this.querySelector<HTMLButtonElement>(`[data-group-tab="${CSS.escape(groupId)}"]`)?.focus();
   }
 
   // Analytics are only recorded on the live site, never while editing. The /api/faq-analytics
@@ -127,7 +153,9 @@ class FAQWidget extends HTMLElement {
     const showFeedback = this.flag('show-feedback', true) && Boolean(this.data.group);
     const categories = this.flag('show-categories', true) ? categoriesOf(faqItems) : [];
     if (this.category && !categories.includes(this.category)) this.category = '';
-    const heading = escapeHtml(this.getSetting('heading', preset.heading));
+    const strings = getUIStrings(this.activeLanguage);
+    const english = getUIStrings('en');
+    const heading = escapeHtml(this.getText('heading', preset.heading, strings.heading));
     const description = escapeHtml(this.getSetting('description', message));
     const questionFont = parseFont(this.getAttribute('question-font'), preset.questionFont);
     const answerFont = parseFont(this.getAttribute('answer-font'), preset.answerFont);
@@ -136,13 +164,16 @@ class FAQWidget extends HTMLElement {
 
     const root = document.createElement('section');
     root.className = styles.root;
+    if (isRTL(this.activeLanguage) && !this.getAttribute('dir')) {
+      root.setAttribute('dir', 'rtl');
+    }
     Object.assign(root.dataset, { layout: preset.layout, display, animation: this.getSetting('animation', 'fade'), hover: this.getSetting('hover-effect', 'lift') });
-    root.style.cssText = `--faq-bg:${this.getSetting('background-color', 'transparent')};--faq-question:${this.getSetting('question-color', preset.questionColor)};--faq-answer:${this.getSetting('answer-color', preset.answerColor)};--faq-accent:${this.getSetting('accent-color', preset.accentColor)};--faq-border:${this.getSetting('border-color', preset.borderColor)};--faq-icon:${this.getSetting('icon-color', preset.iconColor)};--faq-icon-size:${this.getSetting('icon-size', String(preset.iconSize))}px;--faq-radius:${this.getSetting('radius', String(preset.radius))}px;--faq-gap:${this.getSetting('gap', String(preset.gap))}px;--faq-padding:${this.getSetting('padding', '28')}px;--faq-margin-top:${this.getSetting('margin-top', '0')}px;--faq-margin-right:${this.getSetting('margin-right', '0')}px;--faq-margin-bottom:${this.getSetting('margin-bottom', '0')}px;--faq-margin-left:${this.getSetting('margin-left', '0')}px;--faq-question-font:${questionFont.font};--faq-answer-font:${answerFont.font};`;
+    root.style.cssText = `--faq-bg:${this.getSetting('background-color', 'transparent')};--faq-question:${this.getSetting('question-color', preset.questionColor)};--faq-answer:${this.getSetting('answer-color', preset.answerColor)};--faq-accent:${this.getSetting('accent-color', preset.accentColor)};--faq-border:${this.getSetting('border-color', preset.borderColor)};--faq-icon:${this.getSetting('icon-color', preset.iconColor)};--faq-icon-size:${this.getSetting('icon-size', String(preset.iconSize))}px;--faq-radius:${this.getSetting('radius', String(preset.radius))}px;--faq-gap:${this.getSetting('gap', String(preset.gap))}px;--faq-padding:${this.getSetting('padding', String(preset.padding))}px;--faq-margin-top:${this.getSetting('margin-top', '0')}px;--faq-margin-right:${this.getSetting('margin-right', '0')}px;--faq-margin-bottom:${this.getSetting('margin-bottom', '0')}px;--faq-margin-left:${this.getSetting('margin-left', '0')}px;--faq-question-font:${questionFont.font};--faq-answer-font:${answerFont.font};`;
 
     const feedback = (item: FAQItem): string => {
       if (!showFeedback || !item._id) return '';
-      if (readSession(`faq-vote-${item._id}`)) return `<div class="${styles.feedback}"><span>Thanks for your feedback!</span></div>`;
-      return `<div class="${styles.feedback}" data-feedback="${escapeHtml(item._id)}"><span>Was this helpful?</span><button type="button" class="${styles.vote}" data-vote="helpful">👍 Yes</button><button type="button" class="${styles.vote}" data-vote="not-helpful">👎 No</button></div>`;
+      if (readSession(`faq-vote-${item._id}`)) return `<div class="${styles.feedback}"><span>${escapeHtml(strings.helpfulThanks)}</span></div>`;
+      return `<div class="${styles.feedback}" data-feedback="${escapeHtml(item._id)}"><span>${escapeHtml(strings.helpfulPrompt)}</span><button type="button" class="${styles.vote}" data-vote="helpful">👍 ${escapeHtml(strings.helpfulYes)}</button><button type="button" class="${styles.vote}" data-vote="not-helpful">👎 ${escapeHtml(strings.helpfulNo)}</button></div>`;
     };
     const iconMarkup = this.flag('show-icon', true) ? `<span class="${styles.icon}" data-icon="${icon}" aria-hidden="true">${iconSvg(icon)}</span>` : '';
     const delay = (index: number): string => `style="--faq-delay:${Math.min(index, 10) * 60}ms"`;
@@ -162,19 +193,23 @@ class FAQWidget extends HTMLElement {
     const showSearch = this.flag('show-search', true) && faqItems.length > 0;
     const toggleable = display === 'accordion' || display === 'grid';
     const showExpandAll = this.flag('show-expand-all', false) && toggleable && faqItems.length > 1;
-    const toolbar = showSearch || showExpandAll ? `<div class="${styles.toolbar}">${showSearch ? `<label class="${styles.search}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="${styles.visuallyHidden}">Search questions</span><input type="search" data-search placeholder="${escapeHtml(this.getSetting('search-placeholder', 'Search questions…'))}" value="${escapeHtml(this.query)}"/></label>` : ''}${showExpandAll ? `<div class="${styles.toolbarButtons}">${singleOpen ? '' : `<button type="button" class="${styles.toolButton}" data-expand="true">Expand all</button>`}<button type="button" class="${styles.toolButton}" data-expand="false">Collapse all</button></div>` : ''}</div>` : '';
-    const chips = categories.length > 1 ? `<div class="${styles.categories}" role="group" aria-label="Filter by category">${['', ...categories].map((category) => `<button type="button" class="${styles.chip}" data-category="${escapeHtml(category)}" aria-pressed="${category === this.category}">${category ? escapeHtml(category) : 'All'}</button>`).join('')}</div>` : '';
-    const help = this.flag('show-help', false) ? `<div class="${styles.help}"><p>${escapeHtml(this.getSetting('help-text', 'Still have questions?'))}</p>${helpLink ? `<a class="${styles.helpButton}" href="${escapeHtml(helpLink)}"${isExternal ? ' target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(this.getSetting('help-label', 'Contact us'))}</a>` : ''}</div>` : '';
+    const toolbar = showSearch || showExpandAll ? `<div class="${styles.toolbar}">${showSearch ? `<label class="${styles.search}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="${styles.visuallyHidden}">${escapeHtml(strings.search)}</span><input type="search" data-search placeholder="${escapeHtml(this.getText('search-placeholder', english.searchPlaceholder, strings.searchPlaceholder))}" value="${escapeHtml(this.query)}"/></label>` : ''}${showExpandAll ? `<div class="${styles.toolbarButtons}">${singleOpen ? '' : `<button type="button" class="${styles.toolButton}" data-expand="true">${escapeHtml(strings.expandAll)}</button>`}<button type="button" class="${styles.toolButton}" data-expand="false">${escapeHtml(strings.collapseAll)}</button></div>` : ''}</div>` : '';
+    const chips = categories.length > 1 ? `<div class="${styles.categories}" role="group" aria-label="${escapeHtml(strings.categories)}">${['', ...categories].map((category) => `<button type="button" class="${styles.chip}" data-category="${escapeHtml(category)}" aria-pressed="${category === this.category}">${category ? escapeHtml(category) : escapeHtml(strings.allCategories)}</button>`).join('')}</div>` : '';
+    const help = this.flag('show-help', false) ? `<div class="${styles.help}"><p>${escapeHtml(this.getText('help-text', english.helpText, strings.helpText))}</p>${helpLink ? `<a class="${styles.helpButton}" href="${escapeHtml(helpLink)}"${isExternal ? ' target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(this.getText('help-label', english.helpLabel, strings.helpLabel))}</a>` : ''}</div>` : '';
 
     const headingMarkup = this.flag('show-heading', true) && heading ? `<h2>${heading}</h2>` : '';
     const descriptionMarkup = this.flag('show-description', true) && description ? `<p>${description}</p>` : '';
     const header = headingMarkup || descriptionMarkup ? `<header class="${styles.header}">${headingMarkup}${descriptionMarkup}</header>` : '';
-    root.innerHTML = `${header}${toolbar}${chips}<div class="${styles.list}" role="list">${list}</div><p class="${styles.noResults}" data-no-results hidden></p>${help}`;
+    const sections = this.data.sections;
+    const tabPrefix = `faq-group-${this.activeGroupId}`;
+    const groupTabs = sections.length > 1 ? `<div class="${styles.categories}" role="tablist" aria-label="${escapeHtml(strings.tabs)}" data-group-tabs>${sections.map((section) => { const groupId = section.group._id ?? ''; const selected = groupId === this.activeGroupId; return `<button type="button" role="tab" class="${styles.chip}" id="faq-group-${escapeHtml(groupId)}-tab" data-group-tab="${escapeHtml(groupId)}" aria-selected="${selected}" aria-controls="${escapeHtml(tabPrefix)}-panel" tabindex="${selected ? 0 : -1}">${escapeHtml(section.group.title)}</button>`; }).join('')}</div>` : '';
+    const listAttributes = groupTabs ? `role="tabpanel" id="${escapeHtml(tabPrefix)}-panel" aria-labelledby="${escapeHtml(tabPrefix)}-tab"` : 'role="list"';
+    root.innerHTML = `${header}${groupTabs}${toolbar}${chips}<div class="${styles.list}" ${listAttributes}>${list}</div><p class="${styles.noResults}" data-no-results hidden></p>${help}`;
 
     if (this.flag('seo-schema', true) && faqItems.length) {
       const schema = document.createElement('script');
       schema.type = 'application/ld+json';
-      schema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqItems.map((item) => ({ '@type': 'Question', name: item.question, acceptedAnswer: { '@type': 'Answer', text: item.answer } })) }).replace(/</g, '\\u003c');
+      schema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', inLanguage: this.activeLanguage || 'en', mainEntity: faqItems.map((item) => ({ '@type': 'Question', name: item.question, acceptedAnswer: { '@type': 'Answer', text: item.answer } })) }).replace(/</g, '\\u003c');
       root.append(schema);
     }
 
@@ -184,6 +219,16 @@ class FAQWidget extends HTMLElement {
   }
 
   private bindEvents(root: HTMLElement, singleOpen: boolean): void {
+    root.querySelectorAll<HTMLButtonElement>('[data-group-tab]').forEach((tab) => tab.addEventListener('click', () => this.selectGroup(tab.dataset.groupTab ?? '', true)));
+    root.querySelector<HTMLElement>('[data-group-tabs]')?.addEventListener('keydown', (event) => {
+      const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-group-tab]'));
+      const current = tabs.indexOf(event.target as HTMLButtonElement);
+      if (current < 0 || !['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const forward = (event.key === 'ArrowRight') !== (getComputedStyle(root).direction === 'rtl');
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (forward ? 1 : -1) + tabs.length) % tabs.length;
+      this.selectGroup(tabs[next]?.dataset.groupTab ?? '', true);
+    });
     root.querySelectorAll<HTMLButtonElement>(`.${styles.question}`).forEach((button) => button.addEventListener('click', () => this.setOpen(button, button.getAttribute('aria-expanded') !== 'true', singleOpen)));
     root.querySelectorAll<HTMLButtonElement>('[role="tab"]').forEach((tab) => tab.addEventListener('click', () => this.selectTab(tab)));
     root.querySelectorAll<HTMLButtonElement>('[data-expand]').forEach((button) => button.addEventListener('click', () => {
@@ -211,7 +256,7 @@ class FAQWidget extends HTMLElement {
       const vote = button.dataset.vote === 'helpful' ? 'helpful' : 'not-helpful';
       writeSession(`faq-vote-${itemId}`, vote);
       this.track(vote, { itemId });
-      container.innerHTML = '<span>Thanks for your feedback!</span>';
+      container.innerHTML = `<span>${escapeHtml(getUIStrings(this.activeLanguage).helpfulThanks)}</span>`;
     })));
   }
 
@@ -261,14 +306,21 @@ class FAQWidget extends HTMLElement {
     const noResults = this.querySelector<HTMLElement>('[data-no-results]');
     if (noResults) {
       noResults.hidden = visible > 0 || !faqItems.length;
-      noResults.textContent = words.length ? `No questions match “${this.query.trim()}”.` : 'No questions in this category yet.';
+      noResults.textContent = getUIStrings(this.activeLanguage).noResults;
     }
     return visible;
   }
 
   // Deep links: `#faq-<question-slug>` in the page URL opens and scrolls to that question.
   private openFromHash(): void {
-    const hash = decodeURIComponent(window.location.hash.slice(1));
+    let hash: string;
+    try { hash = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+    if (!hash) return;
+    // A link to a question in another group switches to that group's tab first.
+    if (!this.anchors.includes(hash)) {
+      const owner = this.data?.sections.find((section) => itemAnchors(section.faqItems).includes(hash));
+      if (owner?.group._id) this.selectGroup(owner.group._id);
+    }
     const index = this.anchors.indexOf(hash);
     if (index < 0) return;
     if (this.query || this.category) {

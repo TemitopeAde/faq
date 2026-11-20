@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { items } from '@wix/data';
-import { ArrowLeft, Download, Eye, EyeOff, GripVertical, Link2, MousePointerClick, Pencil, Plus, Settings, ThumbsDown, ThumbsUp, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Eye, EyeOff, GripVertical, MousePointerClick, Pencil, Plus, Settings, ThumbsDown, ThumbsUp, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,15 +8,15 @@ import { InfoTip, Tooltip } from '@/components/ui/tooltip';
 import type { ItemStats } from '@/lib/faq-analytics';
 import { fetchFAQAnalytics } from '@/lib/faq-api';
 import { parseCSV, toCSV } from '@/lib/faq-csv';
-import { FAQ_ITEMS, GROUPS, categoriesOf, itemAnchors } from '@/lib/faq-data';
+import { FAQ_ITEMS, GROUPS, categoriesOf } from '@/lib/faq-data';
 import type { FAQGroup, FAQItem } from '@/lib/faq-types';
 import { ConfirmDialog } from './confirm-dialog';
 import { GroupSettingsDialog } from './group-settings-dialog';
 import { QuestionDialog } from './question-dialog';
 import { allQueryItems } from '@/lib/faq-query';
+import { displayLanguage, t, tn } from '@/lib/dashboard-i18n';
 
 const emptyStats: ItemStats = { opens: 0, helpful: 0, notHelpful: 0 };
-const CSV_HELP = 'Upload a spreadsheet saved as CSV. The first row needs "question" and "answer" columns; "category" and "published" are optional.';
 
 const downloadFile = (name: string, content: string, type: string) => {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -29,6 +29,7 @@ type GroupDetailProps = { group: FAQGroup; onBack: () => void; onGroupChanged: (
 
 export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps) => {
   const [groupItems, setGroupItems] = useState<Array<FAQItem>>([]);
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [stats, setStats] = useState<Record<string, ItemStats>>({});
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -47,7 +48,7 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
     try {
       const result = await allQueryItems(items.query(FAQ_ITEMS).eq('groupId', group._id).ascending('sortOrder'));
       setGroupItems(result as unknown as Array<FAQItem>);
-    } catch (error) { console.error('Failed to load FAQ items:', error); toast.error('Could not load questions'); } finally { setLoading(false); }
+    } catch (error) { console.error('Failed to load FAQ items:', error); toast.error(t('detail.loadError')); } finally { setLoading(false); }
   }, [group._id]);
 
   useEffect(() => {
@@ -61,20 +62,20 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
   const togglePublishedGroup = async () => {
     if (!group._id) return;
     setPublishing(true);
-    try { await items.update(GROUPS, { ...group, _id: group._id, published: !group.published }); toast.success(group.published ? 'Group unpublished' : 'Group published', { description: group.published ? 'It no longer appears on your live site.' : 'Live display requires Pro or an active trial.' }); await onGroupChanged(); }
-    catch (error) { console.error('Failed to update FAQ group:', error); toast.error('Could not update the group'); } finally { setPublishing(false); }
+    try { await items.update(GROUPS, { ...group, _id: group._id, published: !group.published }); toast.success(group.published ? t('detail.groupUnpublished') : t('detail.groupPublished'), { description: group.published ? t('detail.groupUnpublishedBody') : t('detail.groupPublishedBody') }); await onGroupChanged(); }
+    catch (error) { console.error('Failed to update FAQ group:', error); toast.error(t('detail.groupUpdateError')); } finally { setPublishing(false); }
   };
 
   const toggleItemPublished = async (item: FAQItem) => {
     if (!item._id) return;
-    try { await items.update(FAQ_ITEMS, { ...item, _id: item._id, published: !item.published }); setGroupItems((current) => current.map((other) => (other._id === item._id ? { ...other, published: !item.published } : other))); toast.success(item.published ? 'Question hidden from your site' : 'Question visible on your site'); }
-    catch (error) { console.error('Failed to update FAQ item:', error); toast.error('Could not update the question'); }
+    try { await items.update(FAQ_ITEMS, { ...item, _id: item._id, published: !item.published }); setGroupItems((current) => current.map((other) => (other._id === item._id ? { ...other, published: !item.published } : other))); toast.success(item.published ? t('detail.questionHidden') : t('detail.questionVisible')); }
+    catch (error) { console.error('Failed to update FAQ item:', error); toast.error(t('detail.questionUpdateError')); }
   };
 
   const deleteItem = async () => {
     if (!deletingItem?._id) return;
-    try { await items.remove(FAQ_ITEMS, deletingItem._id); toast.success('Question deleted'); await refresh(); }
-    catch (error) { console.error('Failed to delete FAQ item:', error); toast.error('Could not delete the question'); }
+    try { await items.remove(FAQ_ITEMS, deletingItem._id); toast.success(t('detail.questionDeleted')); await refresh(); }
+    catch (error) { console.error('Failed to delete FAQ item:', error); toast.error(t('detail.questionDeleteError')); }
   };
 
   const deleteGroup = async () => {
@@ -83,11 +84,11 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
       const ids = groupItems.map((item) => item._id).filter((id): id is string => Boolean(id));
       if (ids.length) await items.bulkRemove(FAQ_ITEMS, ids);
       await items.remove(GROUPS, group._id);
-      toast.success(`"${group.title}" deleted`);
+      toast.success(t('detail.groupDeleted', { title: group.title }));
       setSettingsOpen(false);
       await onGroupChanged();
       onBack();
-    } catch (error) { console.error('Failed to delete FAQ group:', error); toast.error('Could not delete the group'); }
+    } catch (error) { console.error('Failed to delete FAQ group:', error); toast.error(t('detail.groupDeleteError')); }
   };
 
   // Persists the current order, writing only the items whose position changed.
@@ -95,10 +96,14 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
     const changed = ordered.map((item, index) => ({ ...item, sortOrder: index })).filter((item, index) => groupItems.find((other) => other._id === item._id)?.sortOrder !== index);
     setGroupItems(ordered.map((item, index) => ({ ...item, sortOrder: index })));
     if (!changed.length) return;
-    try { await items.bulkUpdate(FAQ_ITEMS, changed as Array<FAQItem & { _id: string }>); toast.success('New order saved'); }
-    catch (error) { console.error('Failed to save FAQ order:', error); toast.error('Could not save the new order'); await loadItems(); }
+    try { await items.bulkUpdate(FAQ_ITEMS, changed as Array<FAQItem & { _id: string }>); toast.success(t('detail.orderSaved')); }
+    catch (error) { console.error('Failed to save FAQ order:', error); toast.error(t('detail.orderError')); await loadItems(); }
   };
-  const rows = dragOrder ?? groupItems;
+  const usedLanguages = Array.from(new Set(groupItems.map((item) => (item.language || '').toLowerCase()).filter(Boolean)));
+  const visibleItems = filterLanguage === 'all'
+    ? groupItems
+    : groupItems.filter((item) => (item.language || '').toLowerCase() === filterLanguage);
+  const rows = dragOrder ?? visibleItems;
   const onDragOver = (event: DragEvent, index: number) => {
     event.preventDefault();
     if (dragIndex === null || dragIndex === index) return;
@@ -114,60 +119,60 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
     void saveOrder(next);
   };
 
-  const published = groupItems.filter((item) => item.published);
-  const anchors = itemAnchors(published);
-  const copyLink = async (item: FAQItem) => {
-    const anchor = anchors[published.findIndex((other) => other._id === item._id)];
-    if (!anchor) { toast.error('Show this question on your site first to link to it'); return; }
-    const description = 'Paste it at the end of the address of the page that shows your FAQ.';
-    try { await navigator.clipboard.writeText(`#${anchor}`); toast.success(`Copied #${anchor}`, { description }); }
-    catch { toast.info(`Link: #${anchor}`, { description, duration: 10000 }); }
-  };
-
   const exportCSV = () => downloadFile(`${group.connectionKey || 'faqs'}.csv`, `﻿${toCSV(groupItems)}`, 'text/csv;charset=utf-8');
   const importCSV = async (file: File) => {
     if (!group._id) return;
     setImporting(true);
     try {
       const parsed = parseCSV(await file.text());
-      if (!parsed.length) { toast.error('No questions found', { description: 'Each row needs a question and an answer.' }); return; }
+      if (!parsed.length) { toast.error(t('detail.importEmpty'), { description: t('detail.importEmptyBody') }); return; }
       await items.bulkInsert(FAQ_ITEMS, parsed.map((row, index) => ({ ...row, title: row.question, groupId: group._id, sortOrder: groupItems.length + index })));
-      toast.success(`Imported ${parsed.length} question${parsed.length === 1 ? '' : 's'}`);
+      toast.success(tn('detail.imported', parsed.length));
       await refresh();
-    } catch (error) { console.error('Failed to import FAQ CSV:', error); toast.error('Could not import the file', { description: error instanceof Error ? error.message : undefined }); }
+    } catch (error) { console.error('Failed to import FAQ CSV:', error); toast.error(t('detail.importError'), { description: error instanceof Error ? error.message : undefined }); }
     finally { setImporting(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   return <section className="detail">
     <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCSV(file); }} />
-    <button type="button" className="back-link" onClick={onBack}><ArrowLeft size={16} />All FAQ groups</button>
+    <button type="button" className="back-link" onClick={onBack}><ArrowLeft size={16} className="flip-rtl" />{t('detail.back')}</button>
 
     <header className="detail-header">
       <div className="detail-title">
         <h2>{group.title}</h2>
         <div className="detail-meta">
-          <Badge className={group.published ? 'badge-live' : 'badge-draft'}>{group.published ? 'Live' : 'Draft'}</Badge>
-          <span>{groupItems.length} question{groupItems.length === 1 ? '' : 's'}</span>
-          <InfoTip content={group.published ? 'Live: visible questions appear on your published site.' : 'Draft: questions only show in the Wix Editor preview. Publish the group to show them on your live site.'} />
+          <Badge className={group.published ? 'badge-live' : 'badge-draft'}>{group.published ? t('common.live') : t('common.draft')}</Badge>
+          <span>{tn('common.questionCount', groupItems.length)}</span>
+          <InfoTip content={group.published ? t('detail.liveInfo') : t('detail.draftInfo')} />
         </div>
       </div>
       <div className="detail-actions">
-        <Tooltip content="Rename, edit intro text or delete this group"><Button variant="ghost" size="sm" aria-label="Group settings" onClick={() => setSettingsOpen(true)}><Settings size={16} />Settings</Button></Tooltip>
-        <Button variant="outline" loading={publishing} onClick={() => void togglePublishedGroup()}>{group.published ? 'Unpublish' : 'Publish'}</Button>
-        <Button onClick={() => openQuestion(null)}><Plus size={16} />Add question</Button>
+        <Tooltip content={t('detail.settingsTip')}><Button variant="ghost" size="sm" aria-label={t('detail.settingsLabel')} onClick={() => setSettingsOpen(true)}><Settings size={16} />{t('common.settings')}</Button></Tooltip>
+        <Button variant="outline" loading={publishing} onClick={() => void togglePublishedGroup()}>{group.published ? t('common.unpublish') : t('common.publish')}</Button>
+        <Button onClick={() => openQuestion(null)}><Plus size={16} />{t('detail.addQuestion')}</Button>
       </div>
     </header>
 
-    {loading ? <div className="panel empty-state"><p>Loading questions…</p></div> : rows.length === 0 ? <div className="panel empty-state">
-      <h3>No questions yet</h3>
-      <p>Add your first question, or import a list you already have.</p>
-      <div className="empty-actions"><Button onClick={() => openQuestion(null)}><Plus size={16} />Add question</Button><Tooltip content={CSV_HELP}><Button variant="outline" loading={importing} onClick={() => fileRef.current?.click()}><Upload size={16} />Import CSV</Button></Tooltip></div>
+    {loading ? <div className="panel empty-state"><p>{t('detail.loadingQuestions')}</p></div> : rows.length === 0 ? <div className="panel empty-state">
+      <h3>{t('detail.emptyTitle')}</h3>
+      <p>{t('detail.emptyBody')}</p>
+      <div className="empty-actions"><Button onClick={() => openQuestion(null)}><Plus size={16} />{t('detail.addQuestion')}</Button><Tooltip content={t('detail.csvHelp')}><Button variant="outline" loading={importing} onClick={() => fileRef.current?.click()}><Upload size={16} />{t('detail.importCsv')}</Button></Tooltip></div>
     </div> : <div className="panel">
+      {usedLanguages.length > 0 ? (
+        <div className="language-filter-bar">
+          <span className="language-filter-label">{t('detail.filterLanguage')}</span>
+          <button type="button" className={`lang-chip ${filterLanguage === 'all' ? 'active' : ''}`} onClick={() => setFilterLanguage('all')}>{t('detail.all', { count: groupItems.length })}</button>
+          {usedLanguages.map((code) => {
+            const count = groupItems.filter((item) => (item.language || '').toLowerCase() === code).length;
+            return <button key={code} type="button" className={`lang-chip ${filterLanguage === code ? 'active' : ''}`} onClick={() => setFilterLanguage(code)}>{displayLanguage(code)} ({count})</button>;
+          })}
+        </div>
+      ) : null}
       <div className="panel-toolbar">
-        <span className="panel-hint">Drag <GripVertical size={14} aria-hidden="true" /> to reorder. Click a question to edit it.</span>
+        <span className="panel-hint">{t('detail.reorderHintBefore')} <GripVertical size={14} aria-hidden="true" /> {t('detail.reorderHintAfter')}</span>
         <div className="toolbar-actions">
-          <Tooltip content={CSV_HELP}><Button variant="ghost" size="sm" loading={importing} onClick={() => fileRef.current?.click()}><Upload size={15} />Import</Button></Tooltip>
-          <Tooltip content="Download all questions as a CSV file you can open in Excel or Google Sheets"><Button variant="ghost" size="sm" onClick={exportCSV}><Download size={15} />Export</Button></Tooltip>
+          <Tooltip content={t('detail.csvHelp')}><Button variant="ghost" size="sm" loading={importing} onClick={() => fileRef.current?.click()}><Upload size={15} />{t('common.import')}</Button></Tooltip>
+          <Tooltip content={t('detail.exportTip')}><Button variant="ghost" size="sm" onClick={exportCSV}><Download size={15} />{t('common.export')}</Button></Tooltip>
         </div>
       </div>
       <ol className="question-list">
@@ -175,30 +180,30 @@ export const GroupDetail = ({ group, onBack, onGroupChanged }: GroupDetailProps)
           key={item._id ?? item.question}
           className={`question-row${dragIndex === index ? ' is-dragging' : ''}${item.published ? '' : ' is-hidden'}`}
           onDragOver={(event) => onDragOver(event, index)} onDrop={(event) => event.preventDefault()}>
-          <Tooltip content="Drag to reorder, or focus and use the arrow keys" side="left"><span className="drag-handle" role="button" tabIndex={0} aria-label={`Reorder "${item.question}"`} draggable onDragStart={(event) => { setDragIndex(index); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setDragImage(event.currentTarget.closest('li') ?? event.currentTarget, 20, 20); }} onDragEnd={onDragEnd} onKeyDown={(event) => onHandleKey(event, index)}><GripVertical size={16} /></span></Tooltip>
+          <Tooltip content={t('detail.dragTip')} side="left"><span className="drag-handle" role="button" tabIndex={0} aria-label={t('detail.reorderLabel', { question: item.question })} draggable onDragStart={(event) => { setDragIndex(index); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setDragImage(event.currentTarget.closest('li') ?? event.currentTarget, 20, 20); }} onDragEnd={onDragEnd} onKeyDown={(event) => onHandleKey(event, index)}><GripVertical size={16} /></span></Tooltip>
           <button type="button" className="question-main" onClick={() => openQuestion(item)}>
             <span className="question-text">{item.question}</span>
             <span className="question-meta">
+              {item.language ? <Badge className="badge-lang">{item.language.toUpperCase()}</Badge> : null}
               {item.category ? <Badge>{item.category}</Badge> : null}
-              {item.published ? null : <Badge className="badge-draft">Hidden</Badge>}
+              {item.published ? null : <Badge className="badge-draft">{t('common.hidden')}</Badge>}
             </span>
           </button>
-          <Tooltip content={`Opened ${itemStats.opens} times · ${itemStats.helpful} found it helpful · ${itemStats.notHelpful} didn't`}>
+          <Tooltip content={t('detail.statsTip', { opens: itemStats.opens, helpful: itemStats.helpful, notHelpful: itemStats.notHelpful })}>
             <span className="question-stats" tabIndex={0}><span><MousePointerClick size={13} />{itemStats.opens}</span><span><ThumbsUp size={13} />{itemStats.helpful}</span><span><ThumbsDown size={13} />{itemStats.notHelpful}</span></span>
           </Tooltip>
           <div className="row-actions">
-            <Tooltip content="Edit"><button type="button" className="icon-button" aria-label="Edit question" onClick={() => openQuestion(item)}><Pencil size={15} /></button></Tooltip>
-            <Tooltip content="Copy a link that opens this question on your site"><button type="button" className="icon-button" aria-label="Copy link to question" onClick={() => void copyLink(item)}><Link2 size={15} /></button></Tooltip>
-            <Tooltip content={item.published ? 'Hide from your site' : 'Show on your site'}><button type="button" className="icon-button" aria-label={item.published ? 'Hide question' : 'Show question'} onClick={() => void toggleItemPublished(item)}>{item.published ? <Eye size={15} /> : <EyeOff size={15} />}</button></Tooltip>
-            <Tooltip content="Delete"><button type="button" className="icon-button icon-danger" aria-label="Delete question" onClick={() => setDeletingItem(item)}><Trash2 size={15} /></button></Tooltip>
+            <Tooltip content={t('common.edit')}><button type="button" className="icon-button" aria-label={t('detail.editQuestion')} onClick={() => openQuestion(item)}><Pencil size={15} /></button></Tooltip>
+            <Tooltip content={item.published ? t('detail.hideTip') : t('detail.showTip')}><button type="button" className="icon-button" aria-label={item.published ? t('detail.hideQuestion') : t('detail.showQuestion')} onClick={() => void toggleItemPublished(item)}>{item.published ? <Eye size={15} /> : <EyeOff size={15} />}</button></Tooltip>
+            <Tooltip content={t('common.delete')}><button type="button" className="icon-button icon-danger" aria-label={t('detail.deleteQuestion')} onClick={() => setDeletingItem(item)}><Trash2 size={15} /></button></Tooltip>
           </div>
         </li>; })}
       </ol>
     </div>}
 
-    <QuestionDialog open={questionOpen} onOpenChange={setQuestionOpen} groupId={group._id ?? ''} item={editing} categories={categoriesOf(groupItems)} nextSortOrder={groupItems.length} onSaved={refresh} />
+    <QuestionDialog open={questionOpen} onOpenChange={setQuestionOpen} groupId={group._id ?? ''} item={editing} categories={categoriesOf(groupItems)} defaultLanguage={filterLanguage !== 'all' ? filterLanguage : ''} nextSortOrder={groupItems.length} onSaved={refresh} />
     <GroupSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} group={group} onSaved={onGroupChanged} onDelete={() => { setSettingsOpen(false); setDeletingGroup(true); }} />
-    <ConfirmDialog open={Boolean(deletingItem)} onOpenChange={(open) => { if (!open) setDeletingItem(null); }} title="Delete this question?" description={`"${deletingItem?.question ?? ''}" will be removed from every widget. This can't be undone.`} confirmLabel="Delete question" onConfirm={deleteItem} />
-    <ConfirmDialog open={deletingGroup} onOpenChange={setDeletingGroup} title={`Delete "${group.title}"?`} description={`This deletes the group and its ${groupItems.length} question${groupItems.length === 1 ? '' : 's'}. Widgets connected to it will stop showing FAQs. This can't be undone.`} confirmLabel="Delete group" onConfirm={deleteGroup} />
+    <ConfirmDialog open={Boolean(deletingItem)} onOpenChange={(open) => { if (!open) setDeletingItem(null); }} title={t('detail.confirmDeleteQuestionTitle')} description={t('detail.confirmDeleteQuestionBody', { question: deletingItem?.question ?? '' })} confirmLabel={t('detail.deleteQuestion')} onConfirm={deleteItem} />
+    <ConfirmDialog open={deletingGroup} onOpenChange={setDeletingGroup} title={t('detail.confirmDeleteGroupTitle', { title: group.title })} description={tn('detail.confirmDeleteGroupBody', groupItems.length)} confirmLabel={t('detail.deleteGroup')} onConfirm={deleteGroup} />
   </section>;
 };

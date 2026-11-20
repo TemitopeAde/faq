@@ -35,10 +35,10 @@ function integerValue(payload: Record<string, unknown>, key: string, fallback: n
 
 function changes(payload: Record<string, unknown>, kind: 'groups' | 'questions', creating: boolean): FAQRecord {
   const result: Partial<FAQGroup & FAQItem> = {};
-  const fields = kind === 'groups' ? ['title', 'description'] : ['question', 'answer', 'category'];
+  const fields = kind === 'groups' ? ['title', 'description'] : ['question', 'answer', 'category', 'language'];
   for (const key of fields) {
     const required = creating && ['title', 'question', 'answer'].includes(key);
-    const value = stringValue(payload, key, required, ['description', 'category'].includes(key));
+    const value = stringValue(payload, key, required, ['description', 'category', 'language'].includes(key));
     if (value !== undefined) {
       if (key === 'answer' && !value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim() && !/<(img|iframe)\b/i.test(value)) throw new Error('answer must contain text, an image or a video');
       Object.assign(result, { [key]: value });

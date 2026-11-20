@@ -71,5 +71,5 @@ export const summarize = (events: Array<FAQEvent>): AnalyticsSummary => {
   return { ...summary, byItem, searchesByQuery: [...searches.values()].sort((a, b) => b.count - a.count || b.lastSearched - a.lastSearched) };
 };
 
-export const helpfulRate = ({ helpful, notHelpful }: { helpful: number; notHelpful: number }): string =>
-  helpful + notHelpful ? `${Math.round((helpful / (helpful + notHelpful)) * 100)}%` : '—';
+export const helpfulRate = ({ helpful, notHelpful }: { helpful: number; notHelpful: number }, locale?: string): string =>
+  helpful + notHelpful ? new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(helpful / (helpful + notHelpful)) : '—';

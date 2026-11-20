@@ -3,8 +3,10 @@ import { items } from '@wix/data';
 import { inputs, widget } from '@wix/editor';
 import { Accordion, Box, Button, Dropdown, FillPreview, FormField, Input, SectionHelper, SidePanel, Slider, ToggleSwitch, WixDesignSystemProvider, listItemSelectBuilder } from '@wix/design-system';
 import '@wix/design-system/styles.global.css';
-import { FAQ_PRESETS, presetById } from '../../../../lib/faq-presets';
+import { FAQ_PRESETS, presetById, presetProps } from '../../../../lib/faq-presets';
 import { FAQ_ICONS, iconById } from '../../../../lib/faq-icons';
+import { SUPPORTED_LANGUAGES, getUIStrings } from '../../../../lib/faq-i18n';
+import { detectHostLanguage, displayLanguage, setDashboardLanguage, t, tOr, useDashboardLanguage, type UIKey } from '../../../../lib/dashboard-i18n';
 import type { FontValue } from '../../../../lib/faq-types';
 import { allQueryItems } from '../../../../lib/faq-query';
 import { PricingStatus } from './pricing-status';
@@ -14,26 +16,22 @@ type ConnectionOption = { id: string; value: string; label: string };
 const GROUPS = '@admin14744/faq/faq-groups';
 const defaults = presetById('classic');
 const initialValues: PanelValues = {
-  'connection-key': '', layout: defaults.id, heading: defaults.heading, description: defaults.description,
+  // Text fields start empty: the widget then shows its default text translated into each visitor's language.
+  'connection-key': '', layout: defaults.id, heading: '', description: defaults.description,
   'background-color': 'transparent', 'question-color': defaults.questionColor, 'answer-color': defaults.answerColor,
   'accent-color': defaults.accentColor, 'border-color': defaults.borderColor, 'question-font': JSON.stringify(defaults.questionFont),
   'answer-font': JSON.stringify(defaults.answerFont), icon: defaults.icon, 'icon-color': defaults.iconColor,
-  'icon-size': String(defaults.iconSize), radius: String(defaults.radius), gap: String(defaults.gap), padding: '28',
+  'icon-size': String(defaults.iconSize), radius: String(defaults.radius), gap: String(defaults.gap), padding: String(defaults.padding),
   'margin-top': '0', 'margin-right': '0', 'margin-bottom': '0', 'margin-left': '0', 'initially-open': 'false',
-  display: 'accordion', 'show-search': 'true', 'search-placeholder': 'Search questions…', 'show-categories': 'true', 'show-expand-all': 'false',
+  display: 'accordion', 'show-search': 'true', 'search-placeholder': '', 'show-categories': 'true', 'show-expand-all': 'false',
   'single-open': 'false', 'show-feedback': 'true', 'seo-schema': 'true', animation: 'fade', 'hover-effect': 'lift',
-  'show-help': 'false', 'help-text': 'Still have questions?', 'help-label': 'Contact us', 'help-link': '',
-  'show-heading': 'true', 'show-description': 'true', 'show-icon': 'true',
+  'show-help': 'false', 'help-text': '', 'help-label': '', 'help-link': '',
+  'show-heading': 'true', 'show-description': 'true', 'show-icon': 'true', language: '',
 };
-const displayOptions = [
-  { id: 'accordion', value: 'Accordion (list)' }, { id: 'grid', value: 'Two-column grid' },
-  { id: 'cards', value: 'Cards (answers always visible)' }, { id: 'tabs', value: 'Tabbed (questions beside answer)' },
-];
-const animationOptions = [{ id: 'none', value: 'None' }, { id: 'fade', value: 'Fade in' }, { id: 'slide', value: 'Slide up' }, { id: 'zoom', value: 'Zoom in' }];
-const hoverOptions = [{ id: 'none', value: 'None' }, { id: 'lift', value: 'Lift' }, { id: 'highlight', value: 'Highlight' }, { id: 'accent', value: 'Accent border' }];
+const options = (ids: Array<string>, prefix: string) => ids.map((id) => ({ id, value: id === 'none' ? t('common.none') : t(`${prefix}.${id}` as UIKey) }));
 
 const IconPreview: FC<{ path: string }> = ({ path }) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>;
-const iconOptions = FAQ_ICONS.map((icon) => listItemSelectBuilder({ id: icon.id, label: icon.name, title: icon.name, prefix: <IconPreview path={icon.path} /> }));
+const iconName = (icon: { id: string; name: string }) => tOr(`icon.${icon.id}`, icon.name);
 
 const readFont = (value: string): FontValue => { try { const parsed: unknown = JSON.parse(value); if (typeof parsed === 'object' && parsed !== null && 'font' in parsed && typeof parsed.font === 'string') return { font: parsed.font, textDecoration: 'textDecoration' in parsed && typeof parsed.textDecoration === 'string' ? parsed.textDecoration : '' }; } catch (error) { console.error('Failed to parse widget font:', error); } return defaults.questionFont; };
 
@@ -46,6 +44,10 @@ const fontFamilyLabel = (value: string): string => {
 };
 
 const Panel: FC = () => {
+  const uiLanguage = useDashboardLanguage();
+  useEffect(() => { void setDashboardLanguage(detectHostLanguage()); }, []);
+  const defaultsText = getUIStrings(uiLanguage);
+  const iconOptions = FAQ_ICONS.map((icon) => listItemSelectBuilder({ id: icon.id, label: iconName(icon), title: iconName(icon), prefix: <IconPreview path={icon.path} /> }));
   const [values, setValues] = useState<PanelValues>(initialValues);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const fontPreloadQueue = useRef<Promise<void>>(Promise.resolve());
@@ -67,7 +69,15 @@ const Panel: FC = () => {
   }, [settingsLoaded, questionFontValue, answerFontValue]);
   useEffect(() => { void allQueryItems(items.query(GROUPS).ascending('title')).then((result) => { setConnectionOptions(result.map((group) => ({ id: String(group.connectionKey ?? ''), value: String(group.title ?? group.connectionKey ?? ''), label: String(group.title ?? group.connectionKey ?? '') })).filter((option) => option.id)); }).catch((error) => { console.error('Failed to load FAQ groups for the connection dropdown:', error); }).finally(() => setConnectionsLoading(false)); }, []);
   const setValue = useCallback((key: string, value: string) => { setValues((current) => ({ ...current, [key]: value })); void widget.setProp(key, value); }, []);
-  const applyPreset = useCallback((id: string) => { const preset = presetById(id); const next: PanelValues = { ...values, layout: preset.id, 'background-color': preset.backgroundColor, 'question-color': preset.questionColor, 'answer-color': preset.answerColor, 'accent-color': preset.accentColor, 'border-color': preset.borderColor, 'icon-color': preset.iconColor, 'icon': preset.icon, 'icon-size': String(preset.iconSize), radius: String(preset.radius), gap: String(preset.gap), 'question-font': JSON.stringify(preset.questionFont), 'answer-font': JSON.stringify(preset.answerFont) }; setValues(next); void Promise.all(Object.entries(next).map(([key, value]) => widget.setProp(key, value))); }, [values]);
+  // A preset only writes the props it owns (look, display, spacing, fonts). Writing the whole panel state used to
+  // overwrite the connection key and text with stale defaults when a preset was picked before settings finished loading.
+  const applyPreset = useCallback(async (id: string) => {
+    const changes = presetProps(presetById(id));
+    setValues((current) => ({ ...current, ...changes }));
+    for (const [key, value] of Object.entries(changes)) {
+      try { await widget.setProp(key, value); } catch (error) { console.error(`Failed to apply preset property ${key}:`, error); }
+    }
+  }, []);
   const chooseColor = useCallback((key: string) => { const value = values[key] ?? '#ffffff'; void inputs.selectColor(value, { onChange: (next) => { if (next) setValue(key, next); } }); }, [setValue, values]);
   const chooseFont = useCallback((key: string) => { const value = readFont(values[key] ?? JSON.stringify(defaults.questionFont)); void inputs.selectFont(value, { onChange: (next) => { const font = { font: next.font, textDecoration: next.textDecoration ?? '' }; setValue(key, JSON.stringify(font)); } }); }, [setValue, values]);
   const toggle = (key: string, label: string, info?: string) => <SidePanel.Field><FormField label={label} infoContent={info} labelPlacement="left" stretchContent={false}><ToggleSwitch size="small" checked={values[key] === 'true'} onChange={(event) => setValue(key, String(event.target.checked))} /></FormField></SidePanel.Field>;
@@ -80,8 +90,13 @@ const Panel: FC = () => {
   const selectedPreset = values.layout ?? defaults.id;
   const selectedConnectionKey = values['connection-key'] ?? '';
   const selectedConnectionOption = connectionOptions.some((option) => option.id === selectedConnectionKey) || !selectedConnectionKey ? connectionOptions : [{ id: selectedConnectionKey, value: selectedConnectionKey, label: selectedConnectionKey }, ...connectionOptions];
-  const presetOptions = FAQ_PRESETS.map((preset) => ({ id: preset.id, value: preset.name, label: preset.name }));
-  return <WixDesignSystemProvider><SidePanel width="320" height="100vh"><SidePanel.Header title="FAQ Widget"/><SidePanel.Content noPadding stretchVertically>
+  const presetOptions = FAQ_PRESETS.map((preset) => ({ id: preset.id, value: tOr(`preset.${preset.id}`, preset.name), label: tOr(`preset.${preset.id}`, preset.name) }));
+  const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
+    id: lang.code,
+    value: lang.code ? displayLanguage(lang.code) : t('common.autoLanguage'),
+    label: lang.code ? displayLanguage(lang.code) : t('common.autoLanguage'),
+  }));
+  return <WixDesignSystemProvider><SidePanel width="320" height="100vh"><SidePanel.Header title={t('panel.title')}/><SidePanel.Content noPadding stretchVertically>
     <PricingStatus />
     <Accordion
       skin="light"
@@ -90,97 +105,98 @@ const Panel: FC = () => {
       multiple
       items={[
         {
-          title: 'Connection',
+          title: t('panel.sectionConnection'),
           initiallyOpen: false,
           children: <>
-            <SidePanel.Field><FormField label="FAQ connection key" infoContent="Each widget has its own settings. To link to a question, append its anchor from the dashboard to the page URL."><Dropdown ariaLabel="FAQ connection key" placeholder={connectionsLoading ? 'Loading FAQ groups…' : 'Select an FAQ group'} size="small" selectedId={selectedConnectionKey} options={selectedConnectionOption} valueParser={(option) => option.value} onSelect={(option) => setValue('connection-key', String(option.id))} /></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Layout preset"><Dropdown ariaLabel="Layout preset" placeholder="Select a layout preset" size="small" selectedId={selectedPreset} options={presetOptions} valueParser={(option) => option.value} onSelect={(option) => applyPreset(String(option.id))} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.connectionKey')} infoContent={t('panel.connectionInfo')}><Dropdown ariaLabel={t('panel.connectionKey')} placeholder={connectionsLoading ? t('panel.loadingGroups') : t('panel.selectGroup')} size="small" selectedId={selectedConnectionKey} options={selectedConnectionOption} valueParser={(option) => option.value} onSelect={(option) => setValue('connection-key', String(option.id))} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.preset')}><Dropdown ariaLabel={t('panel.preset')} placeholder={t('panel.selectPreset')} size="small" selectedId={selectedPreset} options={presetOptions} valueParser={(option) => option.value} disabled={!settingsLoaded} onSelect={(option) => void applyPreset(String(option.id))} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.language')} infoContent={t('panel.languageInfo')}><Dropdown ariaLabel={t('panel.language')} placeholder={t('common.autoLanguage')} size="small" selectedId={values.language || ''} options={languageOptions} valueParser={(option) => option.value} onSelect={(option) => setValue('language', String(option.id))} /></FormField></SidePanel.Field>
           </>,
         },
         {
-          title: 'Show on widget',
+          title: t('panel.sectionShow'),
           initiallyOpen: true,
           children: <>
-            {toggle('show-heading', 'Heading')}
-            {toggle('show-description', 'Description')}
-            {toggle('show-search', 'Search box', 'Visitors can filter questions as they type. Matches are highlighted.')}
-            {toggle('show-categories', 'Category filter', 'Shows category chips when the FAQ group uses two or more categories.')}
-            {toggleable && toggle('show-expand-all', 'Expand / collapse all buttons')}
-            {hasIcon && toggle('show-icon', 'Open / close icon')}
-            {toggle('show-feedback', '"Was this helpful?" votes', 'Votes appear in the dashboard Analytics tab.')}
-            {toggle('show-help', '"Still need help?" box')}
-            <SidePanel.Field><SectionHelper size="small">Questions and answers always show. Switch off any extra element you don't need.</SectionHelper></SidePanel.Field>
+            {toggle('show-heading', t('panel.showHeading'))}
+            {toggle('show-description', t('panel.showDescription'))}
+            {toggle('show-search', t('panel.showSearch'), t('panel.showSearchInfo'))}
+            {toggle('show-categories', t('panel.showCategories'), t('panel.showCategoriesInfo'))}
+            {toggleable && toggle('show-expand-all', t('panel.showExpandAll'))}
+            {hasIcon && toggle('show-icon', t('panel.showIcon'))}
+            {toggle('show-feedback', t('panel.showFeedback'), t('panel.showFeedbackInfo'))}
+            {toggle('show-help', t('panel.showHelp'))}
+            <SidePanel.Field><SectionHelper size="small">{t('panel.showHint')}</SectionHelper></SidePanel.Field>
           </>,
         },
         {
-          title: 'Content',
+          title: t('panel.sectionContent'),
           initiallyOpen: false,
           children: <>
-            {shown('show-heading') && <SidePanel.Field><FormField label="Heading"><Input value={values.heading} onChange={(event) => setValue('heading', event.target.value)} /></FormField></SidePanel.Field>}
-            {shown('show-description') && <SidePanel.Field><FormField label="Description"><Input value={values.description} onChange={(event) => setValue('description', event.target.value)} /></FormField></SidePanel.Field>}
-            {shown('show-search') && <SidePanel.Field><FormField label="Search placeholder"><Input value={values['search-placeholder']} onChange={(event) => setValue('search-placeholder', event.target.value)} /></FormField></SidePanel.Field>}
-            {!shown('show-heading') && !shown('show-description') && !shown('show-search') && <SidePanel.Field><SectionHelper size="small">The heading, description and search box are hidden. Turn them on in Show on widget to edit their text.</SectionHelper></SidePanel.Field>}
+            {shown('show-heading') && <SidePanel.Field><FormField label={t('panel.heading')}><Input value={values.heading} placeholder={defaultsText.heading} onChange={(event) => setValue('heading', event.target.value)} /></FormField></SidePanel.Field>}
+            {shown('show-description') && <SidePanel.Field><FormField label={t('panel.description')}><Input value={values.description} onChange={(event) => setValue('description', event.target.value)} /></FormField></SidePanel.Field>}
+            {shown('show-search') && <SidePanel.Field><FormField label={t('panel.searchPlaceholder')}><Input value={values['search-placeholder']} placeholder={defaultsText.searchPlaceholder} onChange={(event) => setValue('search-placeholder', event.target.value)} /></FormField></SidePanel.Field>}
+            {!shown('show-heading') && !shown('show-description') && !shown('show-search') ? <SidePanel.Field><SectionHelper size="small">{t('panel.contentHidden')}</SectionHelper></SidePanel.Field> : <SidePanel.Field><SectionHelper size="small">{t('panel.autoTextHint')}</SectionHelper></SidePanel.Field>}
           </>,
         },
         {
-          title: 'Typography',
+          title: t('panel.sectionTypography'),
           initiallyOpen: false,
           children: <>
-            <SidePanel.Field><FormField label="Question font"><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('question-font')}>{fontFamilyLabel(values['question-font'] ?? JSON.stringify(defaults.questionFont))}</Button></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Answer font"><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('answer-font')}>{fontFamilyLabel(values['answer-font'] ?? JSON.stringify(defaults.answerFont))}</Button></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.questionFont')}><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('question-font')}>{fontFamilyLabel(values['question-font'] ?? JSON.stringify(defaults.questionFont))}</Button></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.answerFont')}><Button fullWidth ellipsis priority="secondary" onClick={() => chooseFont('answer-font')}>{fontFamilyLabel(values['answer-font'] ?? JSON.stringify(defaults.answerFont))}</Button></FormField></SidePanel.Field>
           </>,
         },
         {
-          title: 'Colors',
+          title: t('panel.sectionColors'),
           initiallyOpen: false,
-          children: <>{colorKeys.map((key) => <SidePanel.Field key={key}><FormField label={key.replaceAll('-', ' ')}><Box width="32px"><FillPreview fill={values[key]} size="tiny" aspectRatio={1} onClick={() => chooseColor(key)} /></Box></FormField></SidePanel.Field>)}</>,
+          children: <>{colorKeys.map((key) => <SidePanel.Field key={key}><FormField label={t(`panel.color.${key}` as UIKey)}><Box width="32px"><FillPreview fill={values[key]} size="tiny" aspectRatio={1} onClick={() => chooseColor(key)} /></Box></FormField></SidePanel.Field>)}</>,
         },
         {
-          title: 'Container',
+          title: t('panel.sectionContainer'),
           initiallyOpen: false,
           children: <>
-            <SidePanel.Field><FormField label="Corner radius"><Input type="number" min={0} value={values.radius} onChange={(event) => setValue('radius', event.target.value)} /></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Item gap"><Input type="number" min={0} value={values.gap} onChange={(event) => setValue('gap', event.target.value)} /></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Container padding"><Input type="number" min={0} value={values.padding} onChange={(event) => setValue('padding', event.target.value)} /></FormField></SidePanel.Field>
-            {(['margin-top', 'margin-right', 'margin-bottom', 'margin-left'] as Array<string>).map((key) => <SidePanel.Field key={key}><FormField label={key.replace('-', ' ')}><Input type="number" min={0} value={values[key]} onChange={(event) => setValue(key, event.target.value)} /></FormField></SidePanel.Field>)}
+            <SidePanel.Field><FormField label={t('panel.radius')}><Input type="number" min={0} value={values.radius} onChange={(event) => setValue('radius', event.target.value)} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.gap')}><Input type="number" min={0} value={values.gap} onChange={(event) => setValue('gap', event.target.value)} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.padding')}><Input type="number" min={0} value={values.padding} onChange={(event) => setValue('padding', event.target.value)} /></FormField></SidePanel.Field>
+            {(['margin-top', 'margin-right', 'margin-bottom', 'margin-left'] as Array<string>).map((key) => <SidePanel.Field key={key}><FormField label={t(`panel.margin.${key}` as UIKey)}><Input type="number" min={0} value={values[key]} onChange={(event) => setValue(key, event.target.value)} /></FormField></SidePanel.Field>)}
           </>,
         },
         {
-          title: 'Icon & behavior',
+          title: t('panel.sectionBehavior'),
           initiallyOpen: false,
           children: <>
-            {showIcon && <><SidePanel.Field><FormField label="Icon"><Dropdown ariaLabel="Icon" size="small" selectedId={iconById(values.icon).id} options={iconOptions} prefix={<Box paddingLeft="SP1" verticalAlign="middle"><IconPreview path={iconById(values.icon).path} /></Box>} onSelect={(option) => setValue('icon', String(option.id))} /></FormField></SidePanel.Field>
-            <SidePanel.Field><FormField label="Icon size"><Slider min={10} max={40} step={1} displayMarks={false} value={Number(values['icon-size']) || defaults.iconSize} onChange={(value) => setValue('icon-size', String(Array.isArray(value) ? value[0] : value))} /></FormField></SidePanel.Field></>}
-            {toggleable && toggle('initially-open', 'Open first question')}
-            {toggleable && toggle('single-open', 'One answer open at a time', 'Opening a question closes the one that was open.')}
-            {!showIcon && !toggleable && <SidePanel.Field><SectionHelper size="small">{hasIcon ? 'The icon is hidden. Turn it on in Show on widget to change it.' : 'Cards show every answer, so there is no icon or open/close behavior.'}</SectionHelper></SidePanel.Field>}
+            {showIcon && <><SidePanel.Field><FormField label={t('panel.icon')}><Dropdown ariaLabel={t('panel.icon')} size="small" selectedId={iconById(values.icon).id} options={iconOptions} prefix={<Box paddingLeft="SP1" verticalAlign="middle"><IconPreview path={iconById(values.icon).path} /></Box>} onSelect={(option) => setValue('icon', String(option.id))} /></FormField></SidePanel.Field>
+            <SidePanel.Field><FormField label={t('panel.iconSize')}><Slider min={10} max={40} step={1} displayMarks={false} value={Number(values['icon-size']) || defaults.iconSize} onChange={(value) => setValue('icon-size', String(Array.isArray(value) ? value[0] : value))} /></FormField></SidePanel.Field></>}
+            {toggleable && toggle('initially-open', t('panel.initiallyOpen'))}
+            {toggleable && toggle('single-open', t('panel.singleOpen'), t('panel.singleOpenInfo'))}
+            {!showIcon && !toggleable && <SidePanel.Field><SectionHelper size="small">{hasIcon ? t('panel.iconHidden') : t('panel.cardsNoIcon')}</SectionHelper></SidePanel.Field>}
           </>,
         },
         {
-          title: 'Layout & features',
+          title: t('panel.sectionLayout'),
           initiallyOpen: false,
           children: <>
-            {select('display', 'Display style', displayOptions)}
-            {toggle('seo-schema', 'Search engine FAQ data', 'Adds FAQPage structured data to the page. It is invisible to visitors and helps search engines understand your questions.')}
+            {select('display', t('panel.display'), options(['accordion', 'grid', 'cards', 'tabs'], 'panel.display'))}
+            {toggle('seo-schema', t('panel.seo'), t('panel.seoInfo'))}
           </>,
         },
         {
-          title: 'Animation',
+          title: t('panel.sectionAnimation'),
           initiallyOpen: false,
           children: <>
-            {select('animation', 'Entrance animation', animationOptions)}
-            {select('hover-effect', 'Hover effect', hoverOptions)}
+            {select('animation', t('panel.animation'), options(['none', 'fade', 'slide', 'zoom'], 'panel.animation'))}
+            {select('hover-effect', t('panel.hover'), options(['none', 'lift', 'highlight', 'accent'], 'panel.hover'))}
           </>,
         },
         {
-          title: 'Help box',
+          title: t('panel.sectionHelp'),
           initiallyOpen: false,
           children: <>
-            {!shown('show-help') && <SidePanel.Field><SectionHelper size="small">Turn on "Still need help?" in Show on widget to set up the box.</SectionHelper></SidePanel.Field>}
+            {!shown('show-help') && <SidePanel.Field><SectionHelper size="small">{t('panel.helpOff')}</SectionHelper></SidePanel.Field>}
             {shown('show-help') && <>
-              <SidePanel.Field><FormField label="Message"><Input size="small" value={values['help-text']} onChange={(event) => setValue('help-text', event.target.value)} /></FormField></SidePanel.Field>
-              <SidePanel.Field><FormField label="Button label"><Input size="small" value={values['help-label']} onChange={(event) => setValue('help-label', event.target.value)} /></FormField></SidePanel.Field>
-              <SidePanel.Field><FormField label="Button link" infoContent="A page URL, mailto: or tel: link. Leave empty to hide the button."><Input size="small" placeholder="https://… or mailto:hello@…" value={values['help-link']} onChange={(event) => setValue('help-link', event.target.value)} /></FormField></SidePanel.Field>
+              <SidePanel.Field><FormField label={t('panel.helpMessage')}><Input size="small" value={values['help-text']} placeholder={defaultsText.helpText} onChange={(event) => setValue('help-text', event.target.value)} /></FormField></SidePanel.Field>
+              <SidePanel.Field><FormField label={t('panel.helpLabel')}><Input size="small" value={values['help-label']} placeholder={defaultsText.helpLabel} onChange={(event) => setValue('help-label', event.target.value)} /></FormField></SidePanel.Field>
+              <SidePanel.Field><FormField label={t('panel.helpLink')} infoContent={t('panel.helpLinkInfo')}><Input size="small" placeholder="https://… or mailto:hello@…" value={values['help-link']} onChange={(event) => setValue('help-link', event.target.value)} /></FormField></SidePanel.Field>
             </>}
           </>,
         },

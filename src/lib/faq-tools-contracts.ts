@@ -11,6 +11,7 @@ const questionFields = {
   question: text('The question text.'),
   answer: text('The answer as rich-text HTML, including supported links, images or video embeds.'),
   category: text('Optional category; an empty string clears it.'),
+  language: text('Optional language code (e.g. "en", "es", "fr"); empty string clears it.'),
   published,
 };
 const groupProperties = {

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { t } from '@/lib/dashboard-i18n';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +16,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Overlay className="dialog-overlay" />
     <DialogPrimitive.Content ref={ref} className={cn('dialog-content', className)} {...props}>
       {children}
-      <DialogPrimitive.Close className="dialog-close" aria-label="Close dialog">
+      <DialogPrimitive.Close className="dialog-close" aria-label={t('common.closeDialog')}>
         <X size={18} />
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>

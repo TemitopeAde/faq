@@ -6,27 +6,37 @@ import styles from './faq-harmony.module.css';
 type Props = {
   itemId: string;
   className?: string;
-  disabled: boolean;
+  preview: boolean;
+  prompt: string;
+  yesLabel: string;
+  noLabel: string;
+  thanksLabel: string;
   track: (type: FAQEventType, details: { itemId?: string }) => void;
 };
 
-export function FAQFeedback({ itemId, className, disabled, track }: Props) {
+export function FAQFeedback({ itemId, className, preview, prompt, yesLabel, noLabel, thanksLabel, track }: Props) {
   const [voted, setVoted] = useState(false);
   useEffect(() => {
+    if (preview) {
+      setVoted(false);
+      return;
+    }
     try { setVoted(Boolean(sessionStorage.getItem(`faq-vote-${itemId}`))); } catch { /* Storage is optional. */ }
-  }, [itemId]);
+  }, [itemId, preview]);
   const vote = (type: 'helpful' | 'not-helpful') => {
-    if (voted || disabled) return;
+    if (voted) return;
     setVoted(true);
-    try { sessionStorage.setItem(`faq-vote-${itemId}`, type); } catch { /* Storage is optional. */ }
+    if (!preview) {
+      try { sessionStorage.setItem(`faq-vote-${itemId}`, type); } catch { /* Storage is optional. */ }
+    }
     track(type, { itemId });
   };
   return (
     <div className={styles.feedback}>
-      {voted ? <output>Thanks for your feedback!</output> : <>
-        <span>Was this helpful?</span>
-        <button disabled={disabled} type="button" className={classNames('faq-harmony-feedback', styles.vote, className)} onClick={() => vote('helpful')}>Yes</button>
-        <button disabled={disabled} type="button" className={classNames('faq-harmony-feedback', styles.vote, className)} onClick={() => vote('not-helpful')}>No</button>
+      {voted ? <output>{thanksLabel}</output> : <>
+        <span>{prompt}</span>
+        <button type="button" className={classNames('faq-harmony-feedback', styles.vote, className)} onClick={() => vote('helpful')}>{yesLabel}</button>
+        <button type="button" className={classNames('faq-harmony-feedback', styles.vote, className)} onClick={() => vote('not-helpful')}>{noLabel}</button>
       </>}
     </div>
   );

@@ -20,3 +20,20 @@ export const itemAnchors = (faqItems: Array<Pick<FAQItem, 'question'>>): Array<s
 
 export const categoriesOf = (faqItems: Array<Pick<FAQItem, 'category'>>): Array<string> =>
   [...new Set(faqItems.map((item) => item.category?.trim() ?? '').filter(Boolean))];
+
+const baseLanguage = (value?: string | null): string => (value ?? '').trim().toLowerCase().split(/[-_]/)[0] ?? '';
+
+/**
+ * Questions a visitor browsing in `language` should see: those tagged with that language plus untagged
+ * ("All languages") ones. Questions tagged for another language are never mixed in. If that leaves nothing,
+ * fall back to a single language (the one used by the first tagged question) rather than showing every language.
+ */
+export const itemsForLanguage = <T extends Pick<FAQItem, 'language'>>(faqItems: Array<T>, language?: string | null): Array<T> => {
+  const wanted = baseLanguage(language);
+  if (!wanted) return faqItems;
+  const isUniversal = (item: T) => { const code = baseLanguage(item.language); return !code || code === 'all'; };
+  const visible = faqItems.filter((item) => isUniversal(item) || baseLanguage(item.language) === wanted);
+  if (visible.length) return visible;
+  const fallback = baseLanguage(faqItems.find((item) => !isUniversal(item))?.language);
+  return fallback ? faqItems.filter((item) => baseLanguage(item.language) === fallback) : faqItems;
+};

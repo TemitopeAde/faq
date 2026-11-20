@@ -26,6 +26,7 @@ import planReactivated from './extensions/backend/events/plan-reactivated/plan-r
 import planTransferred from './extensions/backend/events/plan-transferred/plan-transferred.extension.ts';
 
 import faqHarmony from './extensions/site/components/faq-harmony/faq-harmony.extension.ts';
+import faqHarmonyPanel from './extensions/site/components/faq-harmony/faq-harmony.panel.extension.ts';
 
 export default app()
-  .use(myPage).use(faqWidget).use(dataCollections).use(faqTools).use(faqToolsProvider).use(appInstalled).use(paidPlanPurchased).use(paidPlanChanged).use(appRemoved).use(paidPlanAutoRenewalCancelled).use(planConvertedToPaid).use(planReactivated).use(planTransferred).use(faqHarmony);
+  .use(myPage).use(faqWidget).use(dataCollections).use(faqTools).use(faqToolsProvider).use(appInstalled).use(paidPlanPurchased).use(paidPlanChanged).use(appRemoved).use(paidPlanAutoRenewalCancelled).use(planConvertedToPaid).use(planReactivated).use(planTransferred).use(faqHarmony).use(faqHarmonyPanel);

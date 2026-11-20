@@ -8,9 +8,9 @@ import { fetchFAQAnalytics } from '@/lib/faq-api';
 import { FAQ_ITEMS } from '@/lib/faq-data';
 import type { FAQGroup, FAQItem } from '@/lib/faq-types';
 import { allQueryItems } from '@/lib/faq-query';
+import { formatDate, getDashboardLanguage, t, type UIKey } from '@/lib/dashboard-i18n';
 
-const RANGES: Array<{ id: AnalyticsRange; label: string }> = [{ id: '7', label: 'Last 7 days' }, { id: '30', label: 'Last 30 days' }, { id: '90', label: 'Last 90 days' }, { id: 'all', label: 'All time' }];
-const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+const RANGES: Array<{ id: AnalyticsRange; label: UIKey }> = [{ id: '7', label: 'analytics.range7' }, { id: '30', label: 'analytics.range30' }, { id: '90', label: 'analytics.range90' }, { id: 'all', label: 'analytics.rangeAll' }];
 
 export const AnalyticsTab = ({ groups }: { groups: Array<FAQGroup> }) => {
   const [groupId, setGroupId] = useState('');
@@ -30,7 +30,7 @@ export const AnalyticsTab = ({ groups }: { groups: Array<FAQGroup> }) => {
     setLoading(true);
     void fetchFAQAnalytics({ groupId: groupId || undefined, range })
       .then((result) => { setSummary(result.summary); setTruncated(result.truncated); })
-      .catch((error: unknown) => { console.error('Failed to load FAQ analytics:', error); toast.error(error instanceof Error ? error.message : 'Could not load analytics'); })
+      .catch((error: unknown) => { console.error('Failed to load FAQ analytics:', error); toast.error(t('analytics.loadError'), { description: error instanceof Error ? error.message : undefined }); })
       .finally(() => setLoading(false));
   }, [groupId, range]);
 
@@ -46,34 +46,34 @@ export const AnalyticsTab = ({ groups }: { groups: Array<FAQGroup> }) => {
 
   return <section>
     <div className="section-heading">
-      <div className="section-intro"><h2>Visitor analytics <InfoTip content="Collected from published FAQ widgets on your live site. Activity in the Wix Editor or preview isn't counted." /></h2><p>See what visitors open, search for and find helpful.</p></div>
+      <div className="section-intro"><h2>{t('analytics.title')} <InfoTip content={t('analytics.info')} /></h2><p>{t('analytics.intro')}</p></div>
       <div className="analytics-filters">
-        <select className="dashboard-select" aria-label="FAQ group" value={groupId} onChange={(event) => setGroupId(event.target.value)}><option value="">All groups</option>{groups.map((group) => <option key={group._id} value={group._id}>{group.title}</option>)}</select>
-        <select className="dashboard-select" aria-label="Date range" value={range} onChange={(event) => setRange(event.target.value as AnalyticsRange)}>{RANGES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select>
+        <select className="dashboard-select" aria-label={t('analytics.group')} value={groupId} onChange={(event) => setGroupId(event.target.value)}><option value="">{t('analytics.allGroups')}</option>{groups.map((group) => <option key={group._id} value={group._id}>{group.title}</option>)}</select>
+        <select className="dashboard-select" aria-label={t('analytics.range')} value={range} onChange={(event) => setRange(event.target.value as AnalyticsRange)}>{RANGES.map((option) => <option key={option.id} value={option.id}>{t(option.label)}</option>)}</select>
       </div>
     </div>
 
     <div className="stat-grid">
-      <div className="stat-tile"><span>Questions opened <InfoTip content="How many times visitors expanded a question. Each question counts once per page visit." /></span><strong>{loading ? '…' : summary?.opens ?? 0}</strong></div>
-      <div className="stat-tile"><span>Found helpful <InfoTip content="Share of 👍 votes out of all “Was this helpful?” votes." /></span><strong>{loading || !summary ? '…' : helpfulRate(summary)}</strong><small>{summary ? `${summary.helpful} 👍 · ${summary.notHelpful} 👎` : ''}</small></div>
-      <div className="stat-tile"><span>Searches <InfoTip content="Searches typed into the FAQ search box. Counted once the visitor pauses typing." /></span><strong>{loading ? '…' : summary?.searches ?? 0}</strong></div>
-      <div className={`stat-tile${summary?.noResultSearches ? ' stat-warn' : ''}`}><span>No-result searches <InfoTip content="Searches that matched no questions. These are your best ideas for new FAQs." /></span><strong>{loading ? '…' : summary?.noResultSearches ?? 0}</strong></div>
+      <div className="stat-tile"><span>{t('analytics.opened')} <InfoTip content={t('analytics.openedInfo')} /></span><strong>{loading ? '…' : summary?.opens ?? 0}</strong></div>
+      <div className="stat-tile"><span>{t('analytics.helpful')} <InfoTip content={t('analytics.helpfulInfo')} /></span><strong>{loading || !summary ? '…' : helpfulRate(summary, getDashboardLanguage())}</strong><small>{summary ? `${summary.helpful} 👍 · ${summary.notHelpful} 👎` : ''}</small></div>
+      <div className="stat-tile"><span>{t('analytics.searches')} <InfoTip content={t('analytics.searchesInfo')} /></span><strong>{loading ? '…' : summary?.searches ?? 0}</strong></div>
+      <div className={`stat-tile${summary?.noResultSearches ? ' stat-warn' : ''}`}><span>{t('analytics.noResult')} <InfoTip content={t('analytics.noResultInfo')} /></span><strong>{loading ? '…' : summary?.noResultSearches ?? 0}</strong></div>
     </div>
 
-    {truncated ? <p className="page-tip">Showing the most recent 10,000 events. Pick a shorter date range for exact totals.</p> : null}
+    {truncated ? <p className="page-tip">{t('analytics.truncated')}</p> : null}
 
-    {empty ? <p className="empty">No visitor activity in this period yet. Data appears once visitors use a published FAQ widget on your live site.</p> : <div className="analytics-grid">
-      <Card className="analytics-wide"><CardHeader><h2>Missing answers</h2><p>Visitors searched for these and found nothing. Each one is a question worth adding.</p></CardHeader><CardContent>
-        {missing.length ? <table className="data-table"><thead><tr><th>Search</th><th>Times</th><th>Last searched</th></tr></thead><tbody>{missing.map((search) => <tr key={search.query}><td>“{search.query}”</td><td>{search.noResults}</td><td>{dateFormat.format(search.lastSearched)}</td></tr>)}</tbody></table> : <p className="table-empty">Every search found at least one answer. 🎉</p>}
+    {empty ? <p className="empty">{t('analytics.empty')}</p> : <div className="analytics-grid">
+      <Card className="analytics-wide"><CardHeader><h2>{t('analytics.missingTitle')}</h2><p>{t('analytics.missingBody')}</p></CardHeader><CardContent>
+        {missing.length ? <table className="data-table"><thead><tr><th>{t('analytics.colSearch')}</th><th>{t('analytics.colTimes')}</th><th>{t('analytics.colLast')}</th></tr></thead><tbody>{missing.map((search) => <tr key={search.query}><td>“{search.query}”</td><td>{search.noResults}</td><td>{formatDate(search.lastSearched)}</td></tr>)}</tbody></table> : <p className="table-empty">{t('analytics.missingEmpty')}</p>}
       </CardContent></Card>
-      <Card><CardHeader><h2>Most-opened questions</h2></CardHeader><CardContent>
-        {topQuestions.length ? <table className="data-table"><thead><tr><th>Question</th><th>Opens</th><th>Helpful</th></tr></thead><tbody>{topQuestions.map((row) => <tr key={row.id}><td>{row.item?.question}{groupId ? null : <small>{groupTitles.get(row.item?.groupId ?? '')}</small>}</td><td>{row.opens}</td><td>{helpfulRate(row)}</td></tr>)}</tbody></table> : <p className="table-empty">No questions opened yet.</p>}
+      <Card><CardHeader><h2>{t('analytics.topTitle')}</h2></CardHeader><CardContent>
+        {topQuestions.length ? <table className="data-table"><thead><tr><th>{t('analytics.colQuestion')}</th><th>{t('analytics.colOpens')}</th><th>{t('analytics.colHelpful')}</th></tr></thead><tbody>{topQuestions.map((row) => <tr key={row.id}><td>{row.item?.question}{groupId ? null : <small>{groupTitles.get(row.item?.groupId ?? '')}</small>}</td><td>{row.opens}</td><td>{helpfulRate(row, getDashboardLanguage())}</td></tr>)}</tbody></table> : <p className="table-empty">{t('analytics.topEmpty')}</p>}
       </CardContent></Card>
-      <Card><CardHeader><h2>Answers to improve <InfoTip content="Questions with the most 👎 votes. Try rewording the answer or adding detail." /></h2></CardHeader><CardContent>
-        {toImprove.length ? <table className="data-table"><thead><tr><th>Question</th><th>👎</th><th>👍</th></tr></thead><tbody>{toImprove.map((row) => <tr key={row.id}><td>{row.item?.question}{groupId ? null : <small>{groupTitles.get(row.item?.groupId ?? '')}</small>}</td><td>{row.notHelpful}</td><td>{row.helpful}</td></tr>)}</tbody></table> : <p className="table-empty">No “not helpful” votes yet.</p>}
+      <Card><CardHeader><h2>{t('analytics.improveTitle')} <InfoTip content={t('analytics.improveInfo')} /></h2></CardHeader><CardContent>
+        {toImprove.length ? <table className="data-table"><thead><tr><th>{t('analytics.colQuestion')}</th><th>👎</th><th>👍</th></tr></thead><tbody>{toImprove.map((row) => <tr key={row.id}><td>{row.item?.question}{groupId ? null : <small>{groupTitles.get(row.item?.groupId ?? '')}</small>}</td><td>{row.notHelpful}</td><td>{row.helpful}</td></tr>)}</tbody></table> : <p className="table-empty">{t('analytics.improveEmpty')}</p>}
       </CardContent></Card>
-      <Card><CardHeader><h2>Top searches</h2></CardHeader><CardContent>
-        {topSearches.length ? <table className="data-table"><thead><tr><th>Search</th><th>Times</th></tr></thead><tbody>{topSearches.map((search) => <tr key={search.query}><td>“{search.query}”</td><td>{search.count}</td></tr>)}</tbody></table> : <p className="table-empty">No searches yet.</p>}
+      <Card><CardHeader><h2>{t('analytics.searchesTitle')}</h2></CardHeader><CardContent>
+        {topSearches.length ? <table className="data-table"><thead><tr><th>{t('analytics.colSearch')}</th><th>{t('analytics.colTimes')}</th></tr></thead><tbody>{topSearches.map((search) => <tr key={search.query}><td>“{search.query}”</td><td>{search.count}</td></tr>)}</tbody></table> : <p className="table-empty">{t('analytics.searchesEmpty')}</p>}
       </CardContent></Card>
     </div>}
   </section>;

@@ -4,6 +4,7 @@ export type FAQItem = {
   question: string;
   answer: string;
   category?: string;
+  language?: string;
   sortOrder: number;
   published: boolean;
 };
@@ -18,6 +19,9 @@ export type FAQGroup = {
   defaultPreset: string;
   usageCount?: number;
 };
+
+/** One FAQ group with its questions, shown as one tab. */
+export type FAQSection = { group: FAQGroup; faqItems: Array<FAQItem> };
 
 export type FontValue = { font: string; textDecoration: string };
 

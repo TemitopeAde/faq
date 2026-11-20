@@ -1,13 +1,13 @@
 import type { FAQItem } from './faq-types';
 
-export type CSVFAQRow = Pick<FAQItem, 'question' | 'answer' | 'category' | 'published'>;
+export type CSVFAQRow = Pick<FAQItem, 'question' | 'answer' | 'category' | 'language' | 'published'>;
 
-const HEADERS = ['question', 'answer', 'category', 'published'] as const;
+const HEADERS = ['question', 'answer', 'category', 'language', 'published'] as const;
 
 const escapeCell = (value: string): string => (/[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
 
 export const toCSV = (faqItems: Array<FAQItem>): string =>
-  [HEADERS.join(','), ...faqItems.map((item) => [item.question, item.answer, item.category ?? '', String(item.published)].map(escapeCell).join(','))].join('\r\n');
+  [HEADERS.join(','), ...faqItems.map((item) => [item.question, item.answer, item.category ?? '', item.language ?? '', String(item.published)].map(escapeCell).join(','))].join('\r\n');
 
 // RFC 4180 parser: handles quoted cells, escaped quotes and newlines inside quotes.
 const parseRows = (text: string): Array<Array<string>> => {
@@ -43,6 +43,7 @@ export const parseCSV = (text: string): Array<CSVFAQRow> => {
   const answerIndex = columns.indexOf('answer');
   if (questionIndex < 0 || answerIndex < 0) throw new Error('The first row must include "question" and "answer" columns.');
   const categoryIndex = columns.indexOf('category');
+  const languageIndex = columns.indexOf('language');
   const publishedIndex = columns.indexOf('published');
   return rows
     .filter((cells) => (cells[questionIndex] ?? '').trim() && (cells[answerIndex] ?? '').trim())
@@ -50,6 +51,7 @@ export const parseCSV = (text: string): Array<CSVFAQRow> => {
       question: (cells[questionIndex] ?? '').trim(),
       answer: toHtml((cells[answerIndex] ?? '').trim()),
       category: categoryIndex >= 0 ? (cells[categoryIndex] ?? '').trim() : '',
+      language: languageIndex >= 0 ? (cells[languageIndex] ?? '').trim().toLowerCase() : '',
       published: publishedIndex >= 0 ? !/^(false|no|0|draft)$/i.test((cells[publishedIndex] ?? '').trim()) : true,
     }));
 };

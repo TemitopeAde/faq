@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchFAQEntitlement } from './faq-api';
 import type { FAQEntitlement } from './faq-pricing';
+import { t } from './dashboard-i18n';
 
 export const useFAQEntitlement = () => {
   const [entitlement, setEntitlement] = useState<FAQEntitlement | null>(null);
@@ -17,7 +18,7 @@ export const useFAQEntitlement = () => {
     } catch (failure) {
       console.error('Failed to load FAQ entitlement:', failure);
       if (current !== generation.current) return;
-      setEntitlement(null); setError('Could not check your plan. Refresh status to try again.');
+      setEntitlement(null); setError(t('pricing.checkError'));
     } finally { if (current === generation.current) setLoading(false); }
   }, []);
   useEffect(() => {

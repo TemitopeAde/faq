@@ -15,6 +15,38 @@ export type FaqHarmonyProps = {
   singleOpen?: boolean;
   collectFeedback?: boolean;
   seoSchema?: boolean;
+  showSearch?: boolean;
+  showCategories?: boolean;
+  showExpandAll?: boolean;
+  showHeading?: boolean;
+  showDescription?: boolean;
+  showIcon?: boolean;
+  showHelp?: boolean;
+  helpText?: string;
+  helpLabel?: string;
+  helpLink?: string;
+  layout?: string;
+  icon?: string;
+  backgroundColor?: string;
+  questionColor?: string;
+  answerColor?: string;
+  accentColor?: string;
+  borderColor?: string;
+  questionFont?: string;
+  answerFont?: string;
+  iconColor?: string;
+  iconSize?: number;
+  radius?: number;
+  gap?: number;
+  padding?: number;
+  animation?: 'none' | 'fade' | 'slide' | 'zoom';
+  hoverEffect?: 'none' | 'lift' | 'highlight' | 'accent';
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  /** Language code (e.g. 'en', 'es', 'fr') or auto-detected from site. */
+  language?: string;
   elementProps?: {
     heading?: { className?: string };
     description?: { className?: string };
@@ -37,4 +69,35 @@ export const defaultProps = {
   singleOpen: false,
   collectFeedback: true,
   seoSchema: true,
+  showSearch: true,
+  showCategories: true,
+  showExpandAll: false,
+  showHeading: true,
+  showDescription: true,
+  showIcon: true,
+  showHelp: false,
+  helpText: '',
+  helpLabel: '',
+  helpLink: '',
+  layout: 'classic',
+  icon: 'plus',
+  backgroundColor: 'transparent',
+  questionColor: '#0f172a',
+  answerColor: '#475569',
+  accentColor: '#2563eb',
+  borderColor: '#2563eb33',
+  questionFont: '600 18px system-ui, sans-serif',
+  answerFont: '400 15px system-ui, sans-serif',
+  iconColor: '#475569',
+  iconSize: 18,
+  radius: 12,
+  gap: 12,
+  padding: 28,
+  animation: 'fade',
+  hoverEffect: 'lift',
+  marginTop: 0,
+  marginRight: 0,
+  marginBottom: 0,
+  marginLeft: 0,
+  language: '',
 } as const satisfies Omit<FaqHarmonyProps, 'id' | 'className'>;

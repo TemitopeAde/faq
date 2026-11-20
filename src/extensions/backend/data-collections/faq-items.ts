@@ -22,6 +22,7 @@ export default {
       key: 'answer',
     },
     { type: 'TEXT', displayName: 'Category', key: 'category' },
+    { type: 'TEXT', displayName: 'Language', key: 'language' },
     { type: 'NUMBER', displayName: 'Sort Order', key: 'sortOrder' },
     { type: 'BOOLEAN', displayName: 'Published', key: 'published' },
     { type: 'TEXT', displayName: 'Title', key: 'title' },
@@ -43,6 +44,7 @@ export default {
       answer: '<p>Open the widget settings in the Wix Editor and choose <strong>Getting Started</strong> from the FAQ connection key dropdown.</p>',
       category: 'Getting Started',
       sortOrder: 0,
+      language: 'en',
       published: true,
     },
     {

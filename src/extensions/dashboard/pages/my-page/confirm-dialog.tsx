@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { t } from '@/lib/dashboard-i18n';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -18,7 +19,7 @@ export const ConfirmDialog = ({ open, title, description, confirmLabel, onConfir
     <DialogContent className="dialog-small">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
         <Button variant="destructive" loading={busy} onClick={() => void confirm()}>{confirmLabel}</Button>
       </DialogFooter>
     </DialogContent>
