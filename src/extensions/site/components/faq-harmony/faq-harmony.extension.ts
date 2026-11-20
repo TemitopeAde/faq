@@ -85,19 +85,25 @@ export default extensions.editorReactComponent({
         marginLeft: { displayName: 'Margin Left', dataType: DATA.DATA_TYPE.number },
       },
       elements: {
-        faqHarmonyHeading: {
+        heading: {
           inlineElement: {
             cssProperties: {
               font: { defaultValue: '650 24px system-ui, sans-serif' },
             },
           },
         },
-        faqHarmonyDescription: {
+        description: {
           inlineElement: {
             cssProperties: {
               font: { defaultValue: '400 15px system-ui, sans-serif' },
             },
           },
+        },
+      },
+      actions: {
+        dashboard: {
+          displayName: 'Manage FAQs',
+          dashboardPageId: 'c8686cd0-505f-42ed-93fd-018db076c16d',
         },
       },
       layout: {
