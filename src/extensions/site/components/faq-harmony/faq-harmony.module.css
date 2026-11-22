@@ -75,11 +75,16 @@ button.question { cursor: pointer; }
 .tabList .question { border-radius: 8px; }
 .message { display: block; margin-block: 16px 0; font-size: 15px; line-height: 1.65; }
 .message:empty { display: none; }
-.loading { display: flex; min-height: 48px; align-items: center; justify-content: center; margin-block-start: 16px; }
-.spinner { width: 24px; height: 24px; border: 3px solid color-mix(in srgb, var(--faq-accent, #2563eb) 22%, transparent); border-block-start-color: var(--faq-accent, #2563eb); border-radius: 50%; animation: harmony-faq-spin .75s linear infinite; }
-@keyframes harmony-faq-spin { to { transform: rotate(360deg); } }
+.loading { display: grid; gap: 12px; margin-block-start: 16px; }
+.skeletonToolbar { height: 44px; margin-block-end: 4px; }
+.skeletonSearch, .skeletonItem, .skeletonQuestion { display: block; background: color-mix(in srgb, var(--faq-border, #d9dfe8) 38%, transparent); }
+.skeletonSearch { width: min(100%, 420px); height: 100%; border-radius: 8px; }
+.skeletonList { display: grid; gap: var(--faq-gap, 12px); }
+.skeletonItem { min-height: 60px; padding: 20px; border: 1px solid var(--faq-border, #d9dfe8); border-radius: max(6px, calc(var(--faq-radius, 12px) - 4px)); background: transparent; }
+.skeletonQuestion { width: min(68%, 360px); height: 18px; border-radius: 4px; animation: harmony-faq-pulse 1.4s ease-in-out infinite; }
+@keyframes harmony-faq-pulse { 50% { opacity: .45; } }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @container (max-width: 560px) { .tabs { grid-template-columns: 1fr; } .question, .answer { padding: 16px; } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.8s; } }
+@media (prefers-reduced-motion: reduce) { .skeletonQuestion { animation: none; } }
 
 .root[hidden], .item[hidden] { display: none; }

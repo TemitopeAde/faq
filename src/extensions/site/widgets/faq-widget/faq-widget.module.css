@@ -4,6 +4,14 @@
 .header h2 { margin: 0 0 8px; font: var(--faq-question-font); color: var(--faq-question); }
 .header p, .message { margin: 0; color: var(--faq-answer); font: var(--faq-answer-font); }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skeletonToolbar { height: 44px; margin-bottom: 20px; }
+.skeletonSearch, .skeletonItem, .skeletonQuestion { display: block; background: color-mix(in srgb, var(--faq-border, #d9dfe8) 38%, transparent); }
+.skeletonSearch { width: min(100%, 420px); height: 100%; border-radius: max(6px, calc(var(--faq-radius, 12px) - 4px)); animation: faq-skeleton-pulse 1.4s ease-in-out infinite; }
+.skeletonList { display: grid; gap: var(--faq-gap, 12px); }
+.skeletonItem { min-height: 60px; padding: 20px; border: 1px solid var(--faq-border, #d9dfe8); border-radius: max(6px, calc(var(--faq-radius, 12px) - 4px)); background: transparent; }
+.skeletonQuestion { width: min(68%, 360px); height: 18px; border-radius: 4px; animation: faq-skeleton-pulse 1.4s ease-in-out infinite; }
+@keyframes faq-skeleton-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .skeletonSearch, .skeletonQuestion { animation: none; } }
 
 /* Toolbar: search + expand/collapse all */
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }

@@ -244,7 +244,11 @@ const FaqHarmony = ({
         </div>
         <output className={styles.message}>{visible.length === 0 ? strings.noResults : ''}</output>
       </> : status === 'loading' ? <div className={styles.loading} role="status" aria-label={strings.loading}>
-        <span className={styles.spinner} aria-hidden="true" />
+        <span className={styles.visuallyHidden}>{strings.loading}</span>
+        <div className={styles.skeletonToolbar} aria-hidden="true"><span className={styles.skeletonSearch} /></div>
+        <div className={styles.skeletonList} aria-hidden="true">
+          {[0, 1, 2].map((row) => <div className={styles.skeletonItem} key={row}><span className={styles.skeletonQuestion} /></div>)}
+        </div>
       </div> : <div aria-live="polite" className={styles.message}>{message}
         {status === 'error' ? <button type="button" className={styles.control} onClick={retry}>{strings.tryAgain}</button> : null}
       </div>}

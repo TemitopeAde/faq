@@ -84,6 +84,7 @@ class FAQWidget extends HTMLElement {
   private async load(): Promise<void> {
     const token = ++this.renderToken;
     const connectionKey = this.getSetting('connection-key', '');
+    if (!this.data) this.renderLoading();
     let isEditor = false;
     const finish = (data: WidgetData): void => { if (token !== this.renderToken) return; this.data = data; this.anchors = itemAnchors(data.faqItems); this.renderMarkup(); this.openFromHash(); };
     try {
@@ -100,7 +101,7 @@ class FAQWidget extends HTMLElement {
       const sections = result?.groups ?? [];
       if (!sections.length) {
         if (isEditor && result) finish({ group: null, faqItems: [], sections: [], message: strings.editorAddItems, isEditor });
-        else { this.data = null; this.anchors = []; this.replaceChildren(); }
+        else { this.data = null; this.anchors = []; this.setAttribute('aria-busy', 'false'); this.replaceChildren(); }
         return;
       }
       const active = sections.find((section) => section.group._id === this.activeGroupId)
@@ -111,8 +112,19 @@ class FAQWidget extends HTMLElement {
       console.error('Failed to load FAQ group:', error);
       if (token !== this.renderToken) return;
       if (isEditor) finish({ group: null, faqItems: [], sections: [], message: getUIStrings(this.activeLanguage).editorLoadError, isEditor });
-      else { this.data = null; this.anchors = []; this.replaceChildren(); }
+      else { this.data = null; this.anchors = []; this.setAttribute('aria-busy', 'false'); this.replaceChildren(); }
     }
+  }
+
+  private renderLoading(): void {
+    const loading = getUIStrings(this.activeLanguage).loading;
+    this.setAttribute('aria-busy', 'true');
+    const root = document.createElement('section');
+    root.className = styles.root;
+    root.setAttribute('role', 'status');
+    root.setAttribute('aria-label', loading);
+    root.innerHTML = `<span class="${styles.visuallyHidden}">${escapeHtml(loading)}</span><div class="${styles.skeletonToolbar}" aria-hidden="true"><span class="${styles.skeletonSearch}"></span></div><div class="${styles.skeletonList}" aria-hidden="true">${[0, 1, 2].map(() => `<div class="${styles.skeletonItem}"><span class="${styles.skeletonQuestion}"></span></div>`).join('')}</div>`;
+    this.replaceChildren(root);
   }
 
   private sectionData(section: FAQSection, sections: Array<FAQSection>, isEditor: boolean): WidgetData {
@@ -144,6 +156,7 @@ class FAQWidget extends HTMLElement {
 
   private renderMarkup(): void {
     if (!this.data) return;
+    this.setAttribute('aria-busy', 'false');
     const { faqItems, message } = this.data;
     const preset = presetById(this.getSetting('layout', 'classic'));
     const display = this.display;
